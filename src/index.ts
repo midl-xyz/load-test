@@ -1,7 +1,7 @@
-import {connect, getRuneBalance, regtest, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {connect, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
 import {getPublicKey} from "@midl-xyz/midl-js-executor";
 
-import {AddressPurpose, configFrom, midlRegtestWalletClient, multisigAddress} from "./config";
+import {AddressPurpose, configFrom, midlRegtestWalletClient, multisigAddress, regtest} from "./config";
 import {getWalletBalance, transferBitcoinForSwap, transferBitcoinToMultipleWallets} from "./bitcoin";
 import {createEdictForMultipleWallets, createRunesAndEdictsForWallets} from "./runes";
 import {addLiquidity, approveTokens, swapETHForTokens} from "./evm";
@@ -43,8 +43,6 @@ const performSwapOperationWithWallet = async (
 ): Promise<{ success: boolean, timeMs: number, error?: Error }> => {
     const startTime = Date.now();
     try {
-        console.log(`Starting swap operation ${index + 1} with wallet address: ${wallet.address}`);
-
         // Transfer Bitcoin for swap
         const btcTransferForSwap = await transferBitcoinForSwap(multisigAddress, bitcoinAmount, wallet);
 
@@ -60,7 +58,7 @@ const performSwapOperationWithWallet = async (
             wallet,
         );
 
-        await midlRegtestWalletClient.sendBTCTransactions({
+        const txs = await midlRegtestWalletClient.sendBTCTransactions({
             serializedTransactions: [swapTx as `0x${string}`],
             btcTransaction: btcTransferForSwap.tx.hex,
         });
@@ -69,6 +67,9 @@ const performSwapOperationWithWallet = async (
         const timeMs = endTime - startTime;
 
         console.log(`Completed swap operation ${index + 1} with wallet address: ${wallet.address} in ${timeMs}ms`);
+        if (txs.length !== 0) {
+            console.log(`Swap tx id: ${txs[0]}`);
+        }
 
         return {
             success: true,
@@ -151,8 +152,8 @@ const runMultiWalletSwapLoadTest = async (
         totalResults.push(results)
 
         // Add a small delay after each iteration (1 second)
-        // console.log("Adding delay between iterations...");
-        // await delay(1000);
+        console.log("Adding delay between iterations...");
+        await delay(1000);
     }
 
     // Process results
@@ -221,7 +222,7 @@ const runeCombinedOperations = async () => {
         console.log("Connected to configTo and configFrom");
 
         // Step 1: Create 20 wallets
-        const numberOfWallets = 2;
+        const numberOfWallets = 20;
         console.log(`Creating ${numberOfWallets} wallets...`);
         const wallets = await createMultipleWallets(numberOfWallets);
         console.log(`Created ${wallets.length} wallets successfully`);
@@ -375,7 +376,7 @@ const runeCombinedOperations = async () => {
 
         // Load test parameters
         const loadTestParams = {
-            iterations: 1,         // Number of swap operations to perform
+            iterations: 5,         // Number of swap operations to perform
             concurrency: 1,         // Number of concurrent operations (using all wallets)
             bitcoinAmount: bitcoinAmountSwap
         };

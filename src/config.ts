@@ -1,5 +1,5 @@
 import ecc from "@bitcoinerlab/secp256k1";
-import {createConfig, KeyPairConnector, regtest} from "@midl-xyz/midl-js-core";
+import {BitcoinNetwork, createConfig, KeyPairConnector} from "@midl-xyz/midl-js-core";
 import {initEccLib, Network, networks} from "bitcoinjs-lib";
 import ECPairFactory from "ecpair";
 import Bip32Factory from "bip32";
@@ -16,7 +16,7 @@ export const midlRegtest: Chain = {
     id: 0x309,
     rpcUrls: {
         default: {
-            http: ["https://evm-rpc.regtest.midl.xyz"],
+            http: ["http://localhost:8545"],
         },
     },
     name: "midl-regtest",
@@ -26,6 +26,15 @@ export const midlRegtest: Chain = {
         decimals: 18,
     },
 };
+
+export const regtest: BitcoinNetwork = {
+    id: "regtest",
+    network: "regtest",
+    rpcUrl: "http://localhost:80/api",
+    runesUrl: "http://localhost:80",
+    explorerUrl: "http://localhost:80",
+    runesUTXOUrl: "http://localhost:80",
+}
 
 // Create a public client for the MIDL regtest chain
 export const midlRegtestClient = createPublicClient({

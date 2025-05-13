@@ -1,7 +1,7 @@
 import {Address, encodeFunctionData, parseUnits} from "viem";
 import {getChainId} from "viem/actions";
 import {executorAbi, getEVMAddress, runeIdToBytes32, signTransaction} from "@midl-xyz/midl-js-executor";
-import {configTo, midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
+import {midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
 import {uniswapV2Router02Abi} from "@/abi";
 import {getNonce, WalletInfo} from "./utils";
 
@@ -97,7 +97,7 @@ export const addLiquidity = async (
     wallet: WalletInfo
 ): Promise<string> => {
     const chainId = await getChainId(midlRegtestWalletClient);
-    const nonce = await getNonce(wallet);
+    const nonce = await getNonce(wallet) + 1;
     const evmAddress = getEVMAddress(publicKey as `0x${string}`);
 
     return await signTransaction(
@@ -180,8 +180,5 @@ export const swapETHForTokens = async (
         },
         midlRegtestWalletClient,
     );
-
-    console.log("Tx id swap:", swapTx);
-
     return swapTx;
 };

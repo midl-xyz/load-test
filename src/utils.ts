@@ -1,7 +1,7 @@
 import {networks, payments} from "bitcoinjs-lib";
-import {connect, createConfig, extractXCoordinate, KeyPairConnector, regtest} from "@midl-xyz/midl-js-core";
+import {connect, createConfig, extractXCoordinate, KeyPairConnector} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
-import {AddressPurpose, bip32, ECPair, midlRegtestClient} from "./config";
+import {AddressPurpose, bip32, ECPair, midlRegtestClient, regtest} from "./config";
 import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
