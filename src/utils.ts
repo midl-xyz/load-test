@@ -1,11 +1,12 @@
-import {networks, payments} from "bitcoinjs-lib";
-import {connect, createConfig, extractXCoordinate, KeyPairConnector} from "@midl-xyz/midl-js-core";
+import {networks} from "bitcoinjs-lib";
+import {connect, createConfig, KeyPairConnector} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
 import {AddressPurpose, bip32, ECPair, midlRegtestClient, regtest} from "./config";
 import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import {Mutex} from "async-mutex";
 
 // Path to store wallet mnemonics
 const MNEMONICS_FILE_PATH = path.join(__dirname, '..', 'wallet_mnemonics.json');
@@ -50,6 +51,10 @@ export interface WalletInfo {
     privateKey: string;
 }
 
+const nonceMutex = new Mutex();
+const noncesByAddress: { [address: string]: number } = {};
+const pendingNoncesByAddress: { [address: string]: number } = {};
+
 /**
  * Gets the nonce for a transaction
  * @param wallet - The wallet information
@@ -63,13 +68,39 @@ export async function getNonce(wallet: WalletInfo): Promise<number> {
         const formattedPublicKey = getPublicKey(wallet.config, publicKeyHex);
         // Get the EVM address from the public key
         const evmAddress = getEVMAddress(formattedPublicKey as `0x${string}`);
-        return await midlRegtestClient.getTransactionCount({
-            address: evmAddress
-        });
+
+        const release = await nonceMutex.acquire();
+        try {
+            // Always get the current transaction count from the blockchain
+            const transactionCount = await midlRegtestClient.getTransactionCount({
+                address: evmAddress
+            });
+
+            // Initialize or update the stored nonce
+            if (noncesByAddress[evmAddress] === undefined) {
+                noncesByAddress[evmAddress] = transactionCount;
+            } else {
+                // Use the maximum of the stored nonce and the blockchain nonce
+                noncesByAddress[evmAddress] = Math.max(noncesByAddress[evmAddress], transactionCount);
+            }
+
+            // Initialize pending nonce if needed
+            if (pendingNoncesByAddress[evmAddress] === undefined) {
+                pendingNoncesByAddress[evmAddress] = noncesByAddress[evmAddress];
+            }
+
+            // Get the next nonce (current pending nonce)
+            const nonce = pendingNoncesByAddress[evmAddress];
+
+            // Increment the pending nonce for the next transaction
+            pendingNoncesByAddress[evmAddress] = nonce + 1;
+            return nonce;
+        } finally {
+            release();
+        }
     } catch (error) {
-        console.error("Ошибка при получении nonce:", error);
-        // Возвращаем значение по умолчанию или выбрасываем понятное исключение
-        return 0; // или throw new Error(`Не удалось получить nonce: ${error.message}`);
+        console.error("Error getting nonce:", error);
+        throw new Error(`Failed to get nonce: ${error}`);
     }
 }
 
@@ -165,31 +196,3 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
 
     return wallets;
 }
-
-/**
- * Creates a taproot address from a mnemonic
- * @param mnemonic - The mnemonic to use
- * @returns string - The taproot address
- */
-export const createTaprootAddressFromMnemonic = (mnemonic: string) => {
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = bip32.fromSeed(seed, networks.regtest);
-
-    // Use BIP-86 derivation path for taproot
-    const child = root.derivePath("m/86'/1'/0'/0/0");
-    const v = ECPair.fromWIF(child.toWIF()!, networks.regtest);
-
-    const privateKeyHex = v.privateKey?.toString('hex');
-    console.log("Private key:", privateKeyHex);
-
-    // Create taproot address
-    const p2tr = payments.p2tr({
-        internalPubkey: Buffer.from(
-            extractXCoordinate(v.publicKey.toString("hex")),
-            "hex",
-        ),
-        network: networks.regtest,
-    });
-
-    return p2tr.address!;
-};

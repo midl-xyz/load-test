@@ -54,6 +54,7 @@ export const sourcePrivateKeyTo = "7b503a78d68b281e1693b5f9ac7a5cfce5119e2ca9553
 export const multisigAddress = "bcrt1qsjcsryftgwyh3e0z0mvc6vdjx9pl8cx8006q3j";
 export const uniswapRouterAddress = "0x77E1Ba36FfaB4e17A303717Cc174d87AD0E963F7";
 export const WETH = "0x76818770D192A506F90e79D5cB844E708be0D7A0";
+export const executorAddress = "0x3B335fD04C51e3f5b55c881b9B45e4052Fa120eB";
 
 // Create key pair from private key
 export const keyPairFrom = ECPair.fromPrivateKey(

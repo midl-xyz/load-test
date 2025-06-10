@@ -1,7 +1,7 @@
 import {Address, encodeFunctionData, parseUnits} from "viem";
 import {getChainId} from "viem/actions";
 import {executorAbi, getEVMAddress, runeIdToBytes32, signTransaction} from "@midl-xyz/midl-js-executor";
-import {midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
+import {executorAddress, midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
 import {uniswapV2Router02Abi} from "@/abi";
 import {getNonce, WalletInfo} from "./utils";
 
@@ -97,7 +97,7 @@ export const addLiquidity = async (
     wallet: WalletInfo
 ): Promise<string> => {
     const chainId = await getChainId(midlRegtestWalletClient);
-    const nonce = await getNonce(wallet) + 1;
+    const nonce = await getNonce(wallet);
     const evmAddress = getEVMAddress(publicKey as `0x${string}`);
 
     return await signTransaction(
@@ -152,7 +152,7 @@ export const swapETHForTokens = async (
     const evmAddress = getEVMAddress(publicKey as `0x${string}`);
     const nonce = await getNonce(wallet);
 
-    const swapTx = await signTransaction(
+    return await signTransaction(
         wallet.config,
         {
             to: uniswapRouterAddress,
@@ -176,9 +176,50 @@ export const swapETHForTokens = async (
             gas: 500_000n,
             gasPrice: 1000n,
             nonce: nonce,
-            value: parseUnits(bitcoinAmount.toString(), 18),
+            value: parseUnits(bitcoinAmount.toString(), 18) / 5n,
         },
         midlRegtestWalletClient,
     );
-    return swapTx;
 };
+
+/**
+ * Completes a transaction on the executor contract
+ * @param assetAddress - The address of the asset
+ * @param btcTxHash - The Bitcoin transaction hash
+ * @param publicKey - The public key
+ * @param wallet - The wallet information
+ * @returns Promise<string> - The transaction hash
+ */
+export const completeTx = async (
+    assetAddress: string,
+    btcTxHash: string,
+    publicKey: string,
+    wallet: WalletInfo): Promise<string> => {
+    const chainId = await getChainId(midlRegtestWalletClient);
+    const nonce = await getNonce(wallet);
+    return await signTransaction(
+        wallet.config,
+        {
+            to: executorAddress,
+            data: encodeFunctionData({
+                abi: executorAbi,
+                functionName: "completeTx",
+                args: [
+                    `0x${btcTxHash}`,
+                    publicKey as `0x${string}`,
+                    `0x0000000000000000000000000000000000000000000000000000000000000000`,
+                    [assetAddress as `0x${string}`],
+                    [1n],
+                ],
+            }),
+            btcTxHash: `0x${btcTxHash}`,
+            publicKey: publicKey as `0x${string}`,
+            chainId,
+            gas: 500_000n,
+            gasPrice: 1000n,
+            nonce: nonce,
+            value: 1000n
+        },
+        midlRegtestWalletClient,
+    );
+}
