@@ -1,5 +1,5 @@
 import ecc from "@bitcoinerlab/secp256k1";
-import {BitcoinNetwork, createConfig, KeyPairConnector} from "@midl-xyz/midl-js-core";
+import {BitcoinNetwork, createConfig, KeyPairConnector, MempoolSpaceProvider} from "@midl-xyz/midl-js-core";
 import {initEccLib, Network, networks} from "bitcoinjs-lib";
 import ECPairFactory from "ecpair";
 import Bip32Factory from "bip32";
@@ -84,13 +84,23 @@ export enum AddressPurpose {
     Ordinals = "ordinals",
 }
 
+
+export const mempoolProvider = new MempoolSpaceProvider({
+    regtest: "https://mempool.etna.midl.xyz",
+    mainnet: "https://mempool.space",
+    testnet: "https://mempool.space/testnet",
+    testnet4: "https://mempool.space/testnet4",
+});
+
 // Create configuration
 export const configFrom = createConfig({
     networks: [regtest],
     connectors: [new KeyPairConnector(keyPairFrom)],
+    provider: mempoolProvider,
 });
 
 export const configTo = createConfig({
     networks: [regtest],
     connectors: [new KeyPairConnector(keyPairTo)],
+    provider: mempoolProvider,
 });

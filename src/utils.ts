@@ -1,7 +1,7 @@
 import {networks} from "bitcoinjs-lib";
 import {connect, createConfig, KeyPairConnector} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
-import {AddressPurpose, bip32, ECPair, midlRegtestClient, regtest} from "./config";
+import {AddressPurpose, bip32, ECPair, mempoolProvider, midlRegtestClient, regtest} from "./config";
 import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -163,6 +163,7 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
         const config = createConfig({
             networks: [regtest],
             connectors: [new KeyPairConnector(keyPair)],
+            provider: mempoolProvider,
         });
 
         // Connect the config
