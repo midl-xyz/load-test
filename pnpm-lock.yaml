@@ -15,11 +15,14 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
       '@midl-xyz/midl-js-core':
-        specifier: ^1.0.8
-        version: 1.0.8(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
+        specifier: 2.0.0-next.0
+        version: 2.0.0-next.0(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
       '@midl-xyz/midl-js-executor':
         specifier: ^1.0.8
         version: 1.0.8(@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.1))(@tanstack/react-query@5.75.1(react@18.3.1))(@types/react@18.3.20)(bitcoinjs-lib@6.1.7)(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
+      async-mutex:
+        specifier: ^0.5.0
+        version: 0.5.0
       bip32:
         specifier: ^5.0.0-rc.0
         version: 5.0.0-rc.0(typescript@5.8.3)
@@ -213,6 +216,9 @@ packages:
 
   '@midl-xyz/midl-js-core@1.0.8':
     resolution: {integrity: sha512-aWd37dgwBO1ZZ5n2BpXHs1OxWne9IhFtaFcDfsa3E3gpSIjYy4ak5CPz8HVlEcU2aQHpTBWrzRtX4Iq4ESTN9w==}
+
+  '@midl-xyz/midl-js-core@2.0.0-next.0':
+    resolution: {integrity: sha512-rsz7H671tOVHZNx748nbhIzX/jq9Rog94gWXqFtyi1TiGd5kPl11wwSvDZ1IVEuU7gGyZh+H7JkgX56RLlHiwQ==}
 
   '@midl-xyz/midl-js-executor@1.0.8':
     resolution: {integrity: sha512-9VK3yAaSa+PFtAucNXFuxaftXGz+TF5GAfIX4CCqssvFMTlWbA6UZ6YylbKg0omDNxGSep0UurnqHrkG/d3uLQ==}
@@ -548,6 +554,9 @@ packages:
 
   async-mutex@0.2.6:
     resolution: {integrity: sha512-Hs4R+4SPgamu6rSGW8C7cV9gaWUKEHykfzCCvIRuaVv636Ju10ZdeUbvb4TBEW0INuq2DHZqXbK4Nd3yG4RaRw==}
+
+  async-mutex@0.5.0:
+    resolution: {integrity: sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==}
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
@@ -2039,6 +2048,35 @@ snapshots:
       - webextension-polyfill
       - zod
 
+  '@midl-xyz/midl-js-core@2.0.0-next.0(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)':
+    dependencies:
+      '@bitcoinerlab/secp256k1': 1.2.0
+      '@metamask/providers': 17.2.1(webextension-polyfill@0.10.0)
+      '@noble/hashes': 1.8.0
+      axios: 1.9.0
+      bip32: 5.0.0-rc.0(typescript@5.8.3)
+      bitcoinjs-lib: 7.0.0-rc.0(typescript@5.8.3)
+      bitcoinjs-message: 2.2.0
+      bitcoinselect: 1.0.0
+      ecpair: 2.1.0
+      runelib: 1.0.7
+      sats-connect: 3.5.0(typescript@5.8.3)
+      varuint-bitcoin: 1.1.2
+      viem: '@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.1)'
+      zustand: 5.0.4(@types/react@18.3.20)(react@18.3.1)(use-sync-external-store@1.4.0(react@18.3.1))
+    transitivePeerDependencies:
+      - '@types/react'
+      - bufferutil
+      - debug
+      - immer
+      - react
+      - supports-color
+      - typescript
+      - use-sync-external-store
+      - utf-8-validate
+      - webextension-polyfill
+      - zod
+
   '@midl-xyz/midl-js-executor@1.0.8(@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.1))(@tanstack/react-query@5.75.1(react@18.3.1))(@types/react@18.3.20)(bitcoinjs-lib@6.1.7)(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
@@ -3101,6 +3139,10 @@ snapshots:
       picomatch: 2.3.1
 
   async-mutex@0.2.6:
+    dependencies:
+      tslib: 2.8.1
+
+  async-mutex@0.5.0:
     dependencies:
       tslib: 2.8.1
 

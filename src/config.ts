@@ -16,7 +16,7 @@ export const midlRegtest: Chain = {
     id: 0x309,
     rpcUrls: {
         default: {
-            http: ["http://localhost:8545"],
+            http: ["https://rpc.etna.midl.xyz/"],
         },
     },
     name: "midl-regtest",
@@ -30,10 +30,7 @@ export const midlRegtest: Chain = {
 export const regtest: BitcoinNetwork = {
     id: "regtest",
     network: "regtest",
-    rpcUrl: "http://localhost:80/api",
-    runesUrl: "http://localhost:80",
-    explorerUrl: "http://localhost:80",
-    runesUTXOUrl: "http://localhost:80",
+    explorerUrl: "https://mempool.etna.midl.xyz",
 }
 
 // Create a public client for the MIDL regtest chain
@@ -56,9 +53,23 @@ export const uniswapRouterAddress = "0x77E1Ba36FfaB4e17A303717Cc174d87AD0E963F7"
 export const WETH = "0x76818770D192A506F90e79D5cB844E708be0D7A0";
 export const executorAddress = "0x3B335fD04C51e3f5b55c881b9B45e4052Fa120eB";
 
+
+export const getKeyPair = (network: Network = networks.regtest) => {
+    const mnemonic =
+        "face spike layer label health knee cry taste carpet found elegant october";
+    const seed = mnemonicToSeedSync(mnemonic);
+    const root = bip32.fromSeed(seed, network);
+    const child = root.derivePath("m/86'/1'/0'/0/0");
+
+    // biome-ignore lint/style/noNonNullAssertion: Private key is always defined
+    return ECPair.fromWIF(child.toWIF()!, network);
+};
+
+const derivedKeyPair = getKeyPair();
+
 // Create key pair from private key
 export const keyPairFrom = ECPair.fromPrivateKey(
-    Buffer.from(sourcePrivateKeyFrom, "hex"),
+    derivedKeyPair.privateKey!,
     {network: networks.regtest},
 );
 
@@ -72,17 +83,6 @@ export enum AddressPurpose {
     Payment = "payment",
     Ordinals = "ordinals",
 }
-
-export const getKeyPair = (network: Network = networks.regtest) => {
-    const mnemonic =
-        "cheap sick genuine tenant beyond reveal inmate more lift impact slam hurt";
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = bip32.fromSeed(seed, network);
-    const child = root.derivePath("m/86'/1'/0'/0/0");
-
-    // biome-ignore lint/style/noNonNullAssertion: Private key is always defined
-    return ECPair.fromWIF(child.toWIF()!, network);
-};
 
 // Create configuration
 export const configFrom = createConfig({

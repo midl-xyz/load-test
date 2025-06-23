@@ -5,12 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "tps": "npx tsx tests/tps/index.ts --txCount 1000"
+    "tps": "npx tsx tests/tps/index.ts --txCount 10"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
-    "@midl-xyz/midl-js-core": "^1.0.8",
+    "@midl-xyz/midl-js-core": "2.0.0-next.0",
     "@midl-xyz/midl-js-executor": "^1.0.8",
+    "async-mutex": "^0.5.0",
     "bip32": "^5.0.0-rc.0",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.7",
