@@ -146,7 +146,7 @@ const runMultiWalletSwapLoadTest = async (
             batch = 0
             transactionPromises = []
         }
-        
+
         console.log(`Creating operations for wallet ${i + 1}/${wallets.length}`);
 
         const promise = (async () => {
@@ -358,6 +358,7 @@ async function runTest(config: Config) {
             console.log("Broadcast btc tx to multisig address and waiting erc20 creation");
             await createEdictForWallet(wallets[0], runeResults.runeId, bitcoinAmount, runeAmount, multisigAddress, true);
             const runeAddress = await waitRuneAddress(runeResults.runeId);
+            runeResults.assetAddress = runeAddress;
             console.log(`Erc20 created, address: ${runeAddress}`);
 
             console.log("Rune is newly created, approving tokens and adding liquidity for the first wallet");
@@ -381,7 +382,7 @@ async function runTest(config: Config) {
             // Add liquidity to Uniswap
             console.log("Adding liquidity for the first wallet");
             const addLiquidityTxHash = await addLiquidity(
-                runeAddress,
+                runeResults.assetAddress,
                 runeAmount,
                 bitcoinAmount,
                 firstWalletResult.btcTx.tx.id,
