@@ -15,8 +15,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
       '@midl-xyz/midl-js-core':
-        specifier: 2.0.0-next.0
-        version: 2.0.0-next.0(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
+        specifier: 2.0.0-next.2
+        version: 2.0.0-next.2(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
       '@midl-xyz/midl-js-executor':
         specifier: ^1.0.8
         version: 1.0.8(@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.1))(@tanstack/react-query@5.75.1(react@18.3.1))(@types/react@18.3.20)(bitcoinjs-lib@6.1.7)(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)
@@ -217,8 +217,8 @@ packages:
   '@midl-xyz/midl-js-core@1.0.8':
     resolution: {integrity: sha512-aWd37dgwBO1ZZ5n2BpXHs1OxWne9IhFtaFcDfsa3E3gpSIjYy4ak5CPz8HVlEcU2aQHpTBWrzRtX4Iq4ESTN9w==}
 
-  '@midl-xyz/midl-js-core@2.0.0-next.0':
-    resolution: {integrity: sha512-rsz7H671tOVHZNx748nbhIzX/jq9Rog94gWXqFtyi1TiGd5kPl11wwSvDZ1IVEuU7gGyZh+H7JkgX56RLlHiwQ==}
+  '@midl-xyz/midl-js-core@2.0.0-next.2':
+    resolution: {integrity: sha512-97bDu2Fyw9vMVBQ4f4bThIEngElcNLzorSyvAij3rrRRfH+aHRYLBd8A6qFFa/7dBmCEKhESvrlrZsmBWunXQw==}
 
   '@midl-xyz/midl-js-executor@1.0.8':
     resolution: {integrity: sha512-9VK3yAaSa+PFtAucNXFuxaftXGz+TF5GAfIX4CCqssvFMTlWbA6UZ6YylbKg0omDNxGSep0UurnqHrkG/d3uLQ==}
@@ -2048,7 +2048,7 @@ snapshots:
       - webextension-polyfill
       - zod
 
-  '@midl-xyz/midl-js-core@2.0.0-next.0(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)':
+  '@midl-xyz/midl-js-core@2.0.0-next.2(@types/react@18.3.20)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(webextension-polyfill@0.10.0)(zod@3.24.1)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
       '@metamask/providers': 17.2.1(webextension-polyfill@0.10.0)

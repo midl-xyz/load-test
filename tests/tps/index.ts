@@ -3,9 +3,9 @@ import {getPublicKey} from "@midl-xyz/midl-js-executor";
 
 import {AddressPurpose, configFrom, midlRegtestWalletClient, multisigAddress, regtest} from "@/config";
 import {edictRunesForSwap, getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
-import {createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
+import {createEdictForWallet, createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
 import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
-import {createMultipleWallets, WalletInfo} from "@/utils";
+import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
 
 
 // Interface for load test statistics
@@ -137,28 +137,39 @@ const runMultiWalletSwapLoadTest = async (
 
     const operations = [];
 
-    let batch = []
+    let batch = 0
+    let transactionPromises = []
     for (const [i, wallet] of wallets.entries()) {
-        console.log(`Creating operations for wallet ${i + 1}/${wallets.length}`);
-        if (batch.length >= 20) {
-            operations.push(batch)
-            batch = []
+        if (batch >= 20) {
+            const resolvedBatch = await Promise.all(transactionPromises)
+            operations.push(resolvedBatch)
+            batch = 0
+            transactionPromises = []
         }
+        
+        console.log(`Creating operations for wallet ${i + 1}/${wallets.length}`);
 
-        const preparedTransactions = await prepareTransactionsForWallet(
-            wallet,
-            assetAddress,
-            bitcoinAmount,
-            runeId
-        );
-        batch.push({
-            wallet: wallet,
-            preparedTransactions: preparedTransactions
-        });
+        const promise = (async () => {
+            const preparedTxs = await prepareTransactionsForWallet(
+                wallet,
+                assetAddress,
+                bitcoinAmount,
+                runeId
+            );
+            return {
+                wallet: wallet,
+                preparedTransactions: preparedTxs
+            };
+        })();
+
+        transactionPromises.push(promise);
+
+        batch = batch + 1
     }
 
-    if (batch.length > 0) {
-        operations.push(batch)
+    if (batch !== 0) {
+        const resolvedBatch = await Promise.all(transactionPromises)
+        operations.push(resolvedBatch)
     }
 
     const startTime = Date.now();
@@ -263,7 +274,7 @@ async function main() {
     // Override default config with command line arguments if provided
     const config: Config = {
         ...defaultConfig,
-        ...(txCountArg !== undefined && { txCount: txCountArg })
+        ...(txCountArg !== undefined && {txCount: txCountArg})
     }
 
     console.log(`Running test with txCount: ${config.txCount}`);
@@ -344,6 +355,11 @@ async function runTest(config: Config) {
 
         // Only approve tokens and add liquidity for the first wallet and only if the rune doesn't already exist
         if (!runeResults.runeExists) {
+            console.log("Broadcast btc tx to multisig address and waiting erc20 creation");
+            await createEdictForWallet(wallets[0], runeResults.runeId, bitcoinAmount, runeAmount, multisigAddress, true);
+            const runeAddress = await waitRuneAddress(runeResults.runeId);
+            console.log(`Erc20 created, address: ${runeAddress}`);
+
             console.log("Rune is newly created, approving tokens and adding liquidity for the first wallet");
 
             // Get the first wallet result
@@ -365,7 +381,7 @@ async function runTest(config: Config) {
             // Add liquidity to Uniswap
             console.log("Adding liquidity for the first wallet");
             const addLiquidityTxHash = await addLiquidity(
-                runeResults.assetAddress,
+                runeAddress,
                 runeAmount,
                 bitcoinAmount,
                 firstWalletResult.btcTx.tx.id,
@@ -388,7 +404,8 @@ async function runTest(config: Config) {
 
             // Filter wallets that need runes (balance < runeAmount/2)
             const walletsNeedingRunes = [];
-            for (let i = 1; i < wallets.length; i++) {
+            const walletsWithRunes = [];
+            for (let i = 0; i < wallets.length; i++) {
                 try {
                     const runeBalanceResponse = await getRuneBalance(wallets[i].config, {
                         address: wallets[i].address,
@@ -396,6 +413,7 @@ async function runTest(config: Config) {
                     });
                     const balance = BigInt(runeBalanceResponse.balance || "0");
                     console.log(`Wallet ${i} rune balance: ${balance}`);
+                    walletsWithRunes.push(wallets[i]);
                 } catch (error) {
                     console.log(`Error checking rune balance for wallet ${i}, wallet need runes`);
                     walletsNeedingRunes.push(wallets[i]);
@@ -405,7 +423,7 @@ async function runTest(config: Config) {
             console.log(`${walletsNeedingRunes.length} wallets need runes`);
 
             if (walletsNeedingRunes.length > 0) {
-                await distributeRunesToWallets(wallets[0], runeResults.runeId, walletsNeedingRunes)
+                await distributeRunesToWallets(walletsWithRunes, runeResults.runeId, walletsNeedingRunes)
             }
         }
 

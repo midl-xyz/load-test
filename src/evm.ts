@@ -165,7 +165,7 @@ export const swapETHForTokens = async (
                     evmAddress,
                     BigInt(
                         Number.parseInt(
-                            ((new Date().getTime() + 1000 * 60 * 15) / 1000).toString(),
+                            ((new Date().getTime() + 1000 * 60 * 30) / 1000).toString(),
                         ),
                     ),
                 ],
@@ -218,7 +218,7 @@ export const completeTx = async (
             gas: 500_000n,
             gasPrice: 1000n,
             nonce: nonce,
-            value: 1000n
+            value: 0n
         },
         midlRegtestWalletClient,
     );

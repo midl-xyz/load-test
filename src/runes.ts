@@ -32,7 +32,6 @@ export const checkRuneExists = async (address: string, config = configTo): Promi
 };
 
 
-
 /**
  * Creates a rune for a wallet
  * @param wallet - The wallet to create the rune for
@@ -206,34 +205,34 @@ export const createRunesAndEdictsForWallets = async (
 
 /**
  * Distributes runes to multiple wallets using a tree-like distribution pattern
- * @param sourceWallet - The source wallet containing runes to distribute
+ * @param sourceWallets
  * @param runeId - The rune ID to distribute
  * @param walletsNeedingRunes - Array of wallets that need runes
  * @returns Promise<void>
  */
-export async function distributeRunesToWallets(sourceWallet: WalletInfo, runeId: string, walletsNeedingRunes: WalletInfo[]): Promise<void> {
+export async function distributeRunesToWallets(sourceWallets: WalletInfo[], runeId: string, walletsNeedingRunes: WalletInfo[]): Promise<void> {
     // First iteration: Use the source wallet to send to 2 wallets
-    let sourceWallets = [sourceWallet];
+    let walletsWithRunes = [...sourceWallets];
     let remainingWallets = [...walletsNeedingRunes];
 
     while (remainingWallets.length > 0) {
-        console.log(`Processing batch with ${sourceWallets.length} source wallets, ${remainingWallets.length} remaining target wallets`);
+        console.log(`Processing batch with ${walletsWithRunes.length} source wallets, ${remainingWallets.length} remaining target wallets`);
 
         // Create a batch of transactions (one per source wallet)
         const transactionPromises = [];
 
-        for (let i = 0; i < sourceWallets.length && remainingWallets.length > 0; i++) {
+        for (let i = 0; i < walletsWithRunes.length && remainingWallets.length > 0; i++) {
             // Each source wallet can send to up to 2 target wallets
             const targetWallets = remainingWallets.splice(0, 2);
             if (targetWallets.length > 0) {
                 const receiverAddresses = targetWallets.map(wallet => wallet.address);
-                console.log(`Source wallet ${sourceWallets[i].address} sending to ${receiverAddresses.length} wallets`);
+                console.log(`Source wallet ${walletsWithRunes[i].address} sending to ${receiverAddresses.length} wallets`);
 
-                const runeBalance = await getRuneBalance(sourceWallets[i].config, {
-                    address: sourceWallets[i].address,
+                const runeBalance = await getRuneBalance(walletsWithRunes[i].config, {
+                    address: walletsWithRunes[i].address,
                     runeId
                 });
-                console.log(`Source wallet ${sourceWallets[i].address} has ${runeBalance.balance} runes`);
+                console.log(`Source wallet ${walletsWithRunes[i].address} has ${runeBalance.balance} runes`);
 
                 let newBalance = BigInt(runeBalance.balance)
                 newBalance = newBalance / 3n
@@ -241,7 +240,7 @@ export async function distributeRunesToWallets(sourceWallet: WalletInfo, runeId:
 
                 // Create and submit transaction
                 const txPromise = createEdictForMultipleWallets(
-                    sourceWallets[i],
+                    walletsWithRunes[i],
                     runeId,
                     0.00001,
                     newBalance,
@@ -249,7 +248,7 @@ export async function distributeRunesToWallets(sourceWallet: WalletInfo, runeId:
                     true
                 ).then(async ({tx}) => {
                     // Wait for confirmation
-                    await waitForTransaction(sourceWallets[i].config, tx.id, 1);
+                    await waitForTransaction(walletsWithRunes[i].config, tx.id, 1);
                     return targetWallets; // Return the wallets that received runes
                 });
 
@@ -262,10 +261,10 @@ export async function distributeRunesToWallets(sourceWallet: WalletInfo, runeId:
             const confirmedBatches = await Promise.all(transactionPromises);
 
             // Add the newly funded wallets to the source wallets for the next iteration
-            const newSourceWallets = confirmedBatches.flat();
-            sourceWallets = [...sourceWallets, ...newSourceWallets];
+            const newrunesWallets = confirmedBatches.flat();
+            walletsWithRunes = [...walletsWithRunes, ...newrunesWallets];
 
-            console.log(`Batch complete. Now have ${sourceWallets.length} source wallets for next iteration`);
+            console.log(`Batch complete. Now have ${walletsWithRunes.length} source wallets for next iteration`);
             await new Promise(resolve => setTimeout(resolve, 10000))
         } else {
             break; // No more transactions to process

@@ -7,6 +7,8 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import {Mutex} from "async-mutex";
+import {getAssetAddressByRuneId} from "@/evm";
+import {zeroAddress} from "viem";
 
 // Path to store wallet mnemonics
 const MNEMONICS_FILE_PATH = path.join(__dirname, '..', 'wallet_mnemonics.json');
@@ -196,4 +198,15 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
     }
 
     return wallets;
+}
+
+export async function waitRuneAddress(runeId: string): Promise<string> {
+    const runeAddress = await getAssetAddressByRuneId(runeId);
+
+    if (runeAddress === zeroAddress) {
+        console.error(`Rune address for ID ${runeId} is zero address, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait before retrying
+        return waitRuneAddress(runeId); // Retry
+    }
+    return runeAddress;
 }
