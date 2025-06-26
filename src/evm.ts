@@ -165,7 +165,7 @@ export const swapETHForTokens = async (
                     evmAddress,
                     BigInt(
                         Number.parseInt(
-                            ((new Date().getTime() + 1000 * 60 * 30) / 1000).toString(),
+                            ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
                         ),
                     ),
                 ],

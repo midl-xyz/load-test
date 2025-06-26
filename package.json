@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "tps": "npx tsx tests/tps/index.ts --txCount 100"
+    "tps": "npx tsx tests/tps/index.ts --txCount 1000"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",

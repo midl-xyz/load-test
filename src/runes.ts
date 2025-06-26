@@ -7,7 +7,7 @@ import {
     waitForTransaction
 } from "@midl-xyz/midl-js-core";
 import {parseUnits} from "viem";
-import {configTo, multisigAddress} from "./config";
+import {configTo} from "./config";
 import {WalletInfo} from "./utils";
 import {getAssetAddressByRuneId} from "./evm";
 
@@ -160,13 +160,10 @@ export const createEdictForMultipleWallets = async (
  */
 export const createRunesAndEdictsForWallets = async (
     wallets: WalletInfo[],
-    bitcoinAmount: number,
-    runeAmount: bigint
 ): Promise<{
     runeId: string,
     assetAddress: string,
     runeExists: boolean,
-    walletResults: { wallet: WalletInfo, btcTx: any }[]
 }> => {
     if (wallets.length === 0) {
         throw new Error("No wallets provided");
@@ -192,15 +189,7 @@ export const createRunesAndEdictsForWallets = async (
     const assetAddress = await getAssetAddressByRuneId(runeId);
     console.log("Asset address for rune ID:", assetAddress);
 
-    const walletResults = [];
-
-    if (!runeExists) {
-        console.log(`Creating edict for wallet 1/${wallets.length} with address: ${wallets[0].address}`);
-        const btcTx1 = await createEdictForWallet(wallets[0], runeId, bitcoinAmount, runeAmount, multisigAddress, false);
-        walletResults.push({wallet: wallets[0], btcTx: btcTx1});
-    }
-
-    return {runeId, assetAddress, runeExists, walletResults};
+    return {runeId, assetAddress, runeExists};
 };
 
 /**

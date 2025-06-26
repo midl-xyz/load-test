@@ -1,9 +1,9 @@
-import {connect, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {connect, waitForTransaction} from "@midl-xyz/midl-js-core";
 import {getPublicKey} from "@midl-xyz/midl-js-executor";
 
 import {AddressPurpose, configFrom, midlRegtestWalletClient, multisigAddress, regtest} from "@/config";
-import {edictRunesForSwap, getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
-import {createEdictForWallet, createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
+import {getWalletBalance, transferBitcoinForSwap, transferBitcoinToMultipleWallets} from "@/bitcoin";
+import {createEdictForWallet, createRunesAndEdictsForWallets} from "@/runes";
 import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
 import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
 
@@ -40,7 +40,8 @@ const prepareTransactionsForWallet = async (
 
     let txId: string
     let txHex: string
-    const btcTransferForCompleteTx = await edictRunesForSwap(multisigAddress, bitcoinAmount, wallet, runeId, 100);
+    const btcTransferForCompleteTx = await transferBitcoinForSwap(multisigAddress, bitcoinAmount, wallet);
+    // const btcTransferForCompleteTx = await edictRunesForSwap(multisigAddress, bitcoinAmount, wallet, runeId, 100);
     txId = btcTransferForCompleteTx.tx.id
     txHex = btcTransferForCompleteTx.tx.hex
     const txs: `0x${string}`[] = []
@@ -80,29 +81,19 @@ const prepareTransactionsForWallet = async (
 const performOperationWithWallet = async (
     wallet: WalletInfo,
     preparedTransactions: { txs: `0x${string}`[], txHex: string, txId: string }
-): Promise<{ success: boolean, timeMs: number, error?: Error }> => {
-    const startTime = Date.now();
+): Promise<{ success: boolean, error?: Error }> => {
     try {
         await midlRegtestWalletClient.sendBTCTransactions({
             serializedTransactions: preparedTransactions.txs,
             btcTransaction: preparedTransactions.txHex,
         });
-
-        const endTime = Date.now();
-        const timeMs = endTime - startTime;
         return {
             success: true,
-            timeMs
         };
     } catch (error: any) {
-        const endTime = Date.now();
-        const timeMs = endTime - startTime;
-
-        console.error(`Failed swap operation with wallet address: ${wallet.address} after ${timeMs}ms: ${error}`);
-
+        console.error(`Failed swap operation with wallet address: ${wallet.address} with error: ${error}`);
         return {
             success: false,
-            timeMs,
             error
         };
     }
@@ -173,6 +164,7 @@ const runMultiWalletSwapLoadTest = async (
     }
 
     const startTime = Date.now();
+    let totalOperationsTime = 0
     console.log(`Created ${operations.length} batches of operations`);
 
     let totalResults = []
@@ -180,6 +172,7 @@ const runMultiWalletSwapLoadTest = async (
         const batch = operations[i];
 
         console.log(`\nIteration ${i + 1}/${operations.length}:`);
+        const operationStartTime = Date.now();
         const results = await Promise.all(
             batch.map(op =>
                 performOperationWithWallet(
@@ -188,8 +181,15 @@ const runMultiWalletSwapLoadTest = async (
                 )
             )
         );
+        const operationEndTime = Date.now();
+        const timeDiff = operationEndTime - operationStartTime;
+        totalOperationsTime += timeDiff;
+        console.log(`Batch ${i + 1} process time is ${(timeDiff / 1000).toFixed(2)}s`);
         totalResults.push(results)
     }
+
+    const endTime = Date.now();
+    const totalTestTimeMs = endTime - startTime;
 
     // Process results
     let totalSuccessful = 0;
@@ -212,26 +212,14 @@ const runMultiWalletSwapLoadTest = async (
                     stats.errors.push(result.error);
                 }
             }
-
-            stats.operationTimes.push(result.timeMs);
-            stats.totalTimeMs += result.timeMs;
-            stats.minTimeMs = Math.min(stats.minTimeMs, result.timeMs);
-            stats.maxTimeMs = Math.max(stats.maxTimeMs, result.timeMs);
         }
-
         console.log(`Batch results: ${batchSuccessful} successful, ${batchFailed} failed`);
     }
 
     console.log(`Overall: ${totalSuccessful} successful, ${totalFailed} failed operations`);
 
-    const endTime = Date.now();
-    const totalTestTimeMs = endTime - startTime;
-
-    // Calculate average time
-    stats.avgTimeMs = stats.totalTimeMs / stats.totalOperations;
-
     // Calculate TPS (Transactions Per Second)
-    stats.tps = (stats.totalOperations / totalTestTimeMs) * 1000;
+    stats.tps = (stats.totalOperations / totalOperationsTime) * 1000;
 
     // Print statistics
     console.log("\n=== Multi-Wallet Swap Load Test Statistics ===");
@@ -240,9 +228,6 @@ const runMultiWalletSwapLoadTest = async (
     console.log(`Failed operations: ${stats.failedOperations}`);
     console.log(`Success rate: ${((stats.successfulOperations / stats.totalOperations) * 100).toFixed(2)}%`);
     console.log(`Total test time: ${totalTestTimeMs}ms`);
-    console.log(`Average operation time: ${stats.avgTimeMs.toFixed(2)}ms`);
-    console.log(`Minimum operation time: ${stats.minTimeMs}ms`);
-    console.log(`Maximum operation time: ${stats.maxTimeMs}ms`);
     console.log(`TPS (Transactions Per Second): ${stats.tps.toFixed(2)}`);
     console.log(`Wallets used: ${wallets.length}`);
 
@@ -310,6 +295,7 @@ async function runTest(config: Config) {
         // Step 2: Transfer BTC from configTo to each wallet, with more to the first wallet
         console.log(`Checking and transferring BTC to each of the ${wallets.length} wallets...`);
         const regularTransferAmount = 1000000; // 0.01 BTC in satoshis
+        const firstWalletTransferAmount = 110000000; // 1.1 BTC in satoshis
         // Check and transfer regular amount to the remaining wallets
         if (wallets.length > 1) {
             const walletsToFund = [];
@@ -320,9 +306,12 @@ async function runTest(config: Config) {
                 const walletBalance = await getWalletBalance(wallets[i]);
                 console.log(`Wallet ${i} balance: ${walletBalance / 100000000} BTC`);
 
-                if (walletBalance < regularTransferAmount / 2) {
-                    const transferAmount = regularTransferAmount - walletBalance;
-                    console.log(`Wallet ${i} balance (${walletBalance / 100000000} BTC) is less than half of required amount (${regularTransferAmount / 2 / 100000000} BTC)`);
+                // Use different transfer amount for the first wallet
+                const requiredAmount = i === 0 ? firstWalletTransferAmount : regularTransferAmount;
+
+                if (walletBalance < requiredAmount / 2) {
+                    const transferAmount = requiredAmount - walletBalance;
+                    console.log(`Wallet ${i} balance (${walletBalance / 100000000} BTC) is less than half of required amount (${requiredAmount / 2 / 100000000} BTC)`);
                     console.log(`Will transfer ${transferAmount / 100000000} BTC to wallet with address: ${wallets[i].address}`);
                     walletsToFund.push(wallets[i]);
                     transferAmounts.push(transferAmount);
@@ -346,94 +335,93 @@ async function runTest(config: Config) {
 
         // Step 3: Create an etchRune for one wallet and edicts for the others
         console.log("Creating runes and edicts for wallets...");
-        const bitcoinAmount = 0.0001;
-        const runeAmount = 50_000n;
+        const btcPool = 1;
+        const runePool = 50_000_000n;
 
-        const runeResults = await createRunesAndEdictsForWallets(wallets, bitcoinAmount, runeAmount);
+        const runeResults = await createRunesAndEdictsForWallets(wallets);
         console.log(`Created rune with ID ${runeResults.runeId} and asset address ${runeResults.assetAddress}`);
 
 
         // Only approve tokens and add liquidity for the first wallet and only if the rune doesn't already exist
         if (!runeResults.runeExists) {
             console.log("Broadcast btc tx to multisig address and waiting erc20 creation");
-            await createEdictForWallet(wallets[0], runeResults.runeId, bitcoinAmount, runeAmount, multisigAddress, true);
+            await createEdictForWallet(wallets[0], runeResults.runeId, 0.0001, 50_000n, multisigAddress, true);
             const runeAddress = await waitRuneAddress(runeResults.runeId);
             runeResults.assetAddress = runeAddress;
             console.log(`Erc20 created, address: ${runeAddress}`);
-
             console.log("Rune is newly created, approving tokens and adding liquidity for the first wallet");
 
-            // Get the first wallet result
-            const firstWalletResult = runeResults.walletResults[0];
+            const btcTx1 = await createEdictForWallet(wallets[0], runeResults.runeId, btcPool, runePool, multisigAddress, false);
 
             // Get public key for the first wallet
-            const pk = getPublicKey(firstWalletResult.wallet.config, firstWalletResult.wallet.publicKey);
+            const pk = getPublicKey(wallets[0].config, wallets[0].publicKey);
 
             // Approve tokens for spending by the Uniswap router
             console.log("Approving tokens for the first wallet");
             const approvalTxHash = await approveTokens(
                 runeResults.assetAddress,
-                runeAmount,
-                firstWalletResult.btcTx.tx.id,
+                runePool,
+                btcTx1.tx.id,
                 pk as `0x${string}`,
-                firstWalletResult.wallet
+                wallets[0]
             );
 
             // Add liquidity to Uniswap
             console.log("Adding liquidity for the first wallet");
             const addLiquidityTxHash = await addLiquidity(
                 runeResults.assetAddress,
-                runeAmount,
-                bitcoinAmount,
-                firstWalletResult.btcTx.tx.id,
+                runePool,
+                btcPool,
+                btcTx1.tx.id,
                 pk as `0x${string}`,
-                firstWalletResult.wallet
+                wallets[0]
             );
 
-            await midlRegtestWalletClient.sendBTCTransactions({
+            const txs = await midlRegtestWalletClient.sendBTCTransactions({
                 serializedTransactions: [approvalTxHash as `0x${string}`, addLiquidityTxHash as `0x${string}`],
-                btcTransaction: firstWalletResult.btcTx.tx.hex,
+                btcTransaction: btcTx1.tx.hex,
             })
-            await waitForTransaction(firstWalletResult.wallet.config, firstWalletResult.btcTx.tx.id, 1);
+            console.log("Approve and addLiquidityTx sent: ", txs);
+            await waitForTransaction(wallets[0].config, btcTx1.tx.id, 1);
         } else {
             console.log("Rune already exists, skipping token approval and liquidity addition");
         }
 
         // Check rune balance for each wallet and create edicts in pairs
-        if (wallets.length > 1) {
-            console.log(`Checking rune balance for ${wallets.length - 1} remaining wallets`);
-
-            // Filter wallets that need runes (balance < runeAmount/2)
-            const walletsNeedingRunes = [];
-            const walletsWithRunes = [];
-            for (let i = 0; i < wallets.length; i++) {
-                try {
-                    const runeBalanceResponse = await getRuneBalance(wallets[i].config, {
-                        address: wallets[i].address,
-                        runeId: runeResults.runeId
-                    });
-                    const balance = BigInt(runeBalanceResponse.balance || "0");
-                    console.log(`Wallet ${i} rune balance: ${balance}`);
-                    walletsWithRunes.push(wallets[i]);
-                } catch (error) {
-                    console.log(`Error checking rune balance for wallet ${i}, wallet need runes`);
-                    walletsNeedingRunes.push(wallets[i]);
-                }
-            }
-
-            console.log(`${walletsNeedingRunes.length} wallets need runes`);
-
-            if (walletsNeedingRunes.length > 0) {
-                await distributeRunesToWallets(walletsWithRunes, runeResults.runeId, walletsNeedingRunes)
-            }
-        }
+        // if (wallets.length > 1) {
+        //     console.log(`Checking rune balance for ${wallets.length - 1} remaining wallets`);
+        //
+        //     // Filter wallets that need runes (balance < runeAmount/2)
+        //     const walletsNeedingRunes = [];
+        //     const walletsWithRunes = [];
+        //     for (let i = 0; i < wallets.length; i++) {
+        //         try {
+        //             const runeBalanceResponse = await getRuneBalance(wallets[i].config, {
+        //                 address: wallets[i].address,
+        //                 runeId: runeResults.runeId
+        //             });
+        //             const balance = BigInt(runeBalanceResponse.balance || "0");
+        //             console.log(`Wallet ${i} rune balance: ${balance}`);
+        //             walletsWithRunes.push(wallets[i]);
+        //         } catch (error) {
+        //             console.log(`Error checking rune balance for wallet ${i}, wallet need runes`);
+        //             walletsNeedingRunes.push(wallets[i]);
+        //         }
+        //     }
+        //
+        //     console.log(`${walletsNeedingRunes.length} wallets need runes`);
+        //
+        //     if (walletsNeedingRunes.length > 0) {
+        //         await distributeRunesToWallets(walletsWithRunes, runeResults.runeId, walletsNeedingRunes)
+        //     }
+        // }
 
         // Step 4: Perform swap operations concurrently using all wallets
         console.log("Starting multi-wallet swap operations load test");
         // Run the multi-wallet load test
         await runMultiWalletSwapLoadTest(
             runeResults.assetAddress,
-            bitcoinAmount,
+            0.0001,
             wallets,
             runeResults.runeId,
         );

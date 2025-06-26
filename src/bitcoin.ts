@@ -88,3 +88,15 @@ export const edictRunesForSwap = async (receiverAddress: string, bitcoinAmount: 
         return await edictRunesForSwap(receiverAddress, bitcoinAmount, wallet, runeId, retry - 1)
     }
 }
+
+export const transferBitcoinForSwap = async (receiverAddress: string, bitcoinAmount: number, wallet: WalletInfo) => {
+    return await transferBTC(wallet.config, {
+        transfers: [
+            {
+                receiver: receiverAddress,
+                amount: 10_000 + Number(parseUnits(bitcoinAmount.toString(), 8)),
+            },
+        ],
+        publish: false,
+    });
+};
