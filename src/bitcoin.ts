@@ -10,30 +10,23 @@ import {WalletInfo} from "./utils";
  * @returns Promise<any[]> - The results of the transfers
  */
 export const transferBitcoinToMultipleWallets = async (wallets: WalletInfo[], amount: number) => {
-    console.log(`Transferring ${amount / 100000000} BTC to ${wallets.length} wallets`);
-
     const results = [];
+    const transfers: { receiver: string, amount: number }[] = [];
 
     for (let i = 0; i < wallets.length; i++) {
-        console.log(`Transferring to wallet ${i + 1}/${wallets.length} with address: ${wallets[i].address}`);
-
-        // Execute the transfer
-        const result = await transferBTC(configFrom, {
-            transfers: [
-                {
-                    receiver: wallets[i].address,
-                    amount,
-                },
-            ],
-            publish: true,
+        transfers.push({
+            receiver: wallets[i].address,
+            amount: amount,
         });
-
-        console.log(`Transfer to wallet ${i + 1} successful!`);
-        console.log("Transaction ID:", result.tx.id);
-
-        results.push(result);
     }
 
+    const result = await transferBTC(configFrom, {
+        transfers: transfers,
+        publish: true,
+        feeRate: 3,
+    },);
+    console.log("Transaction ID:", result.tx.id);
+    results.push(result);
     return results;
 };
 

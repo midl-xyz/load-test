@@ -1,7 +1,14 @@
 import {connect, waitForTransaction} from "@midl-xyz/midl-js-core";
 import {getPublicKey} from "@midl-xyz/midl-js-executor";
 
-import {AddressPurpose, configFrom, midlRegtestWalletClient, multisigAddress, regtest} from "@/config";
+import {
+    AddressPurpose,
+    configFrom,
+    midlRegtestWalletClient,
+    multisigAddress,
+    regtest,
+    uniswapRouterAddress
+} from "@/config";
 import {getWalletBalance, transferBitcoinForSwap, transferBitcoinToMultipleWallets} from "@/bitcoin";
 import {createEdictForWallet, createRunesAndEdictsForWallets} from "@/runes";
 import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
@@ -323,8 +330,10 @@ async function runTest(config: Config) {
             // Transfer BTC to wallets that need funding
             if (walletsToFund.length > 0) {
                 console.log(`Transferring BTC to ${walletsToFund.length} wallets that need funding...`);
-                for (let i = 0; i < walletsToFund.length; i++) {
-                    await transferBitcoinToMultipleWallets([walletsToFund[i]], transferAmounts[i]);
+                const batchSize = 100;
+                for (let i = 0; i < walletsToFund.length; i += batchSize) {
+                    const batch = walletsToFund.slice(i, i + batchSize);
+                    await transferBitcoinToMultipleWallets(batch, transferAmounts[i]);
                 }
             } else {
                 console.log(`All wallets have sufficient balance, no transfers needed`);
@@ -357,9 +366,9 @@ async function runTest(config: Config) {
             const pk = getPublicKey(wallets[0].config, wallets[0].publicKey);
 
             // Approve tokens for spending by the Uniswap router
-            console.log("Approving tokens for the first wallet");
             const approvalTxHash = await approveTokens(
                 runeResults.assetAddress,
+                uniswapRouterAddress,
                 runePool,
                 btcTx1.tx.id,
                 pk as `0x${string}`,
