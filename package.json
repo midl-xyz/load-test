@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "tps": "npx tsx tests/tps/index.ts --txCount 1000"
+    "tps": "npx tsx tests/tps/index.ts --txCount 5000"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
@@ -17,6 +17,7 @@
     "bitcoinjs-lib": "^6.1.7",
     "bitcoinjs-message": "^2.2.0",
     "ecpair": "^2.1.0",
+    "ethers": "^6.14.4",
     "viem": "npm:@midl-xyz/midl-viem@^2.21.37",
     "wagmi": "^2.15.1"
   },

@@ -16,7 +16,7 @@ export const midlRegtest: Chain = {
     id: 0x309,
     rpcUrls: {
         default: {
-            http: ["https://rpc.etna.midl.xyz/"],
+            http: ["http://localhost:8545"],
         },
     },
     name: "midl-regtest",
@@ -30,7 +30,7 @@ export const midlRegtest: Chain = {
 export const regtest: BitcoinNetwork = {
     id: "regtest",
     network: "regtest",
-    explorerUrl: "https://mempool.etna.midl.xyz",
+    explorerUrl: "http://localhost:80",
 }
 
 // Create a public client for the MIDL regtest chain
@@ -86,7 +86,7 @@ export enum AddressPurpose {
 
 
 export const mempoolProvider = new MempoolSpaceProvider({
-    regtest: "https://mempool.etna.midl.xyz",
+    regtest: "http://localhost:80",
     mainnet: "https://mempool.space",
     testnet: "https://mempool.space/testnet",
     testnet4: "https://mempool.space/testnet4",

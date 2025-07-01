@@ -29,8 +29,9 @@ export const getAssetAddressByRuneId = async (runeId: string): Promise<string> =
 };
 
 /**
- * Approves tokens for spending by the Uniswap router
+ * Approves tokens for spending by target
  * @param assetAddress - The address of the token to approve
+ * @param targetAddress
  * @param runeAmount - The amount of tokens to approve
  * @param btcTxHash - The Bitcoin transaction hash
  * @param publicKey - The public key
@@ -39,6 +40,7 @@ export const getAssetAddressByRuneId = async (runeId: string): Promise<string> =
  */
 export const approveTokens = async (
     assetAddress: string,
+    targetAddress: `0x${string}`,
     runeAmount: bigint,
     btcTxHash: string,
     publicKey: string,
@@ -65,7 +67,7 @@ export const approveTokens = async (
                     }
                 ],
                 functionName: "approve",
-                args: [uniswapRouterAddress, runeAmount],
+                args: [targetAddress, runeAmount],
             }),
             btcTxHash: `0x${btcTxHash}`,
             publicKey: publicKey as `0x${string}`,
