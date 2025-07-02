@@ -333,7 +333,8 @@ async function runTest(config: Config) {
                 const batchSize = 100;
                 for (let i = 0; i < walletsToFund.length; i += batchSize) {
                     const batch = walletsToFund.slice(i, i + batchSize);
-                    await transferBitcoinToMultipleWallets(batch, transferAmounts[i]);
+                    const btcAmounts = transferAmounts.slice(i, i + batchSize);
+                    await transferBitcoinToMultipleWallets(batch, btcAmounts);
                 }
             } else {
                 console.log(`All wallets have sufficient balance, no transfers needed`);
