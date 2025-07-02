@@ -6,17 +6,17 @@ import {WalletInfo} from "./utils";
 /**
  * Transfers Bitcoin from configTo to multiple wallets
  * @param wallets - The wallets to send Bitcoin to
- * @param amount - The amount of Bitcoin to send to each wallet in satoshis
+ * @param btcAmounts - The btcAmounts of Bitcoin to send to each wallet in satoshis
  * @returns Promise<any[]> - The results of the transfers
  */
-export const transferBitcoinToMultipleWallets = async (wallets: WalletInfo[], amount: number) => {
+export const transferBitcoinToMultipleWallets = async (wallets: WalletInfo[], btcAmounts: number[]) => {
     const results = [];
     const transfers: { receiver: string, amount: number }[] = [];
 
     for (let i = 0; i < wallets.length; i++) {
         transfers.push({
             receiver: wallets[i].address,
-            amount: amount,
+            amount: btcAmounts[i],
         });
     }
 
