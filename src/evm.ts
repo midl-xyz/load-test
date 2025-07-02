@@ -1,8 +1,8 @@
 import {Address, encodeFunctionData, parseUnits} from "viem";
 import {getChainId} from "viem/actions";
-import {executorAbi, getEVMAddress, runeIdToBytes32, signTransaction} from "@midl-xyz/midl-js-executor";
+import {getEVMAddress, runeIdToBytes32, signTransaction} from "@midl-xyz/midl-js-executor";
 import {executorAddress, midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
-import {uniswapV2Router02Abi} from "@/abi";
+import {executorAbi, uniswapV2Router02Abi} from "@/abi";
 import {getNonce, WalletInfo} from "./utils";
 
 /**
@@ -207,7 +207,6 @@ export const completeTx = async (
                 abi: executorAbi,
                 functionName: "completeTx",
                 args: [
-                    `0x${btcTxHash}`,
                     publicKey as `0x${string}`,
                     `0x0000000000000000000000000000000000000000000000000000000000000000`,
                     [assetAddress as `0x${string}`],
