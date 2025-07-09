@@ -1,5 +1,5 @@
 import {networks} from "bitcoinjs-lib";
-import {connect, createConfig, KeyPairConnector} from "@midl-xyz/midl-js-core";
+import {connect, createConfig} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
 import {AddressPurpose, bip32, ECPair, mempoolProvider, midlRegtestClient, regtest} from "./config";
 import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
@@ -9,6 +9,7 @@ import * as path from 'path';
 import {Mutex} from "async-mutex";
 import {getAssetAddressByRuneId} from "@/evm";
 import {zeroAddress} from "viem";
+import {keyPairConnector} from "@midl-xyz/midl-js-node";
 
 // Path to store wallet mnemonics
 const MNEMONICS_FILE_PATH = path.join(__dirname, '..', 'wallet_mnemonics.json');
@@ -164,7 +165,12 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
         // Create a config for the wallet
         const config = createConfig({
             networks: [regtest],
-            connectors: [new KeyPairConnector(keyPair)],
+            connectors: [
+                keyPairConnector(
+                    {
+                        keyPair: keyPair,
+                    }
+                )],
             provider: mempoolProvider,
         });
 
