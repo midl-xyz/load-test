@@ -15,7 +15,7 @@ export const getAssetAddressByRuneId = async (runeId: string): Promise<string> =
     const bytes32RuneId = runeIdToBytes32(runeId);
 
     // Contract address
-    const contractAddress = '0x3B335fD04C51e3f5b55c881b9B45e4052Fa120eB';
+    const contractAddress = '0xEbF0Ece9A6cbDfd334Ce71f09fF450cd06D57753';
 
     // Call the contract function
     const assetAddress = await midlRegtestClient.readContract({

@@ -9,8 +9,9 @@
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
-    "@midl-xyz/midl-js-core": "2.0.0-next.2",
+    "@midl-xyz/midl-js-core": "2.0.0-next.15",
     "@midl-xyz/midl-js-executor": "^1.0.8",
+    "@midl-xyz/midl-js-node": "2.0.0-next.12",
     "async-mutex": "^0.5.0",
     "bip32": "^5.0.0-rc.0",
     "bip39": "^3.1.0",
