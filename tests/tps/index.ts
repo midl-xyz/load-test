@@ -1,6 +1,5 @@
-import {connect, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {connect, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
 import {getPublicKey} from "@midl-xyz/midl-js-executor";
-
 import {
     AddressPurpose,
     configFrom,
@@ -9,11 +8,14 @@ import {
     regtest,
     uniswapRouterAddress
 } from "@/config";
-import {getWalletBalance, transferBitcoinForSwap, transferBitcoinToMultipleWallets} from "@/bitcoin";
-import {createEdictForWallet, createRunesAndEdictsForWallets} from "@/runes";
+import {edictRunesForSwap, getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
+import {createEdictForWallet, createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
 import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
 import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
+import path from "path";
+import * as fs from "node:fs";
 
+const PAYLOAD_FILE_PATH = path.join(__dirname, 'payloads.json');
 
 // Interface for load test statistics
 interface LoadTestStats {
@@ -47,8 +49,8 @@ const prepareTransactionsForWallet = async (
 
     let txId: string
     let txHex: string
-    const btcTransferForCompleteTx = await transferBitcoinForSwap(multisigAddress, bitcoinAmount, wallet);
-    // const btcTransferForCompleteTx = await edictRunesForSwap(multisigAddress, bitcoinAmount, wallet, runeId, 100);
+    // const btcTransferForCompleteTx = await transferBitcoinForSwap(multisigAddress, bitcoinAmount, wallet);
+    const btcTransferForCompleteTx = await edictRunesForSwap(multisigAddress, bitcoinAmount, wallet, runeId, 100);
     txId = btcTransferForCompleteTx.tx.id
     txHex = btcTransferForCompleteTx.tx.hex
     const txs: `0x${string}`[] = []
@@ -119,20 +121,7 @@ const runMultiWalletSwapLoadTest = async (
     bitcoinAmount: number,
     wallets: WalletInfo[],
     runeId: string,
-): Promise<LoadTestStats> => {
-    const stats: LoadTestStats = {
-        totalOperations: wallets.length,
-        successfulOperations: 0,
-        failedOperations: 0,
-        totalTimeMs: 0,
-        minTimeMs: Number.MAX_SAFE_INTEGER,
-        maxTimeMs: 0,
-        avgTimeMs: 0,
-        tps: 0,
-        operationTimes: [],
-        errors: []
-    };
-
+): Promise<void> => {
     const operations = [];
 
     let batch = 0
@@ -140,7 +129,7 @@ const runMultiWalletSwapLoadTest = async (
     for (const [i, wallet] of wallets.entries()) {
         if (batch >= 20) {
             const resolvedBatch = await Promise.all(transactionPromises)
-            operations.push(resolvedBatch)
+            operations.push(...resolvedBatch)
             batch = 0
             transactionPromises = []
         }
@@ -167,78 +156,32 @@ const runMultiWalletSwapLoadTest = async (
 
     if (batch !== 0) {
         const resolvedBatch = await Promise.all(transactionPromises)
-        operations.push(resolvedBatch)
+        operations.push(...resolvedBatch)
     }
 
-    const startTime = Date.now();
-    let totalOperationsTime = 0
-    console.log(`Created ${operations.length} batches of operations`);
-
-    let totalResults = []
-    for (let i = 0; i < operations.length; i++) {
-        const batch = operations[i];
-
-        console.log(`\nIteration ${i + 1}/${operations.length}:`);
-        const operationStartTime = Date.now();
-        const results = await Promise.all(
-            batch.map(op =>
-                performOperationWithWallet(
-                    op.wallet,
-                    op.preparedTransactions,
-                )
-            )
-        );
-        const operationEndTime = Date.now();
-        const timeDiff = operationEndTime - operationStartTime;
-        totalOperationsTime += timeDiff;
-        console.log(`Batch ${i + 1} process time is ${(timeDiff / 1000).toFixed(2)}s`);
-        totalResults.push(results)
+    const jsonRpcPayloads = []
+    for (const [i, operation] of operations.entries()) {
+        const jsonRpcPayload = {
+            jsonrpc: "2.0",
+            method: "eth_sendBTCTransactions",
+            params: [
+                operation.preparedTransactions.txs,
+                operation.preparedTransactions.txHex,
+            ],
+            id: i + 1
+        };
+        jsonRpcPayloads.push(jsonRpcPayload);
     }
 
-    const endTime = Date.now();
-    const totalTestTimeMs = endTime - startTime;
-
-    // Process results
-    let totalSuccessful = 0;
-    let totalFailed = 0;
-
-    for (const batchResults of totalResults) {
-        let batchSuccessful = 0;
-        let batchFailed = 0;
-
-        for (const result of batchResults) {
-            if (result.success) {
-                stats.successfulOperations++;
-                batchSuccessful++;
-                totalSuccessful++;
-            } else {
-                stats.failedOperations++;
-                batchFailed++;
-                totalFailed++;
-                if (result.error) {
-                    stats.errors.push(result.error);
-                }
-            }
+    const jsonData = JSON.stringify(jsonRpcPayloads, null, 2);
+    fs.writeFile(PAYLOAD_FILE_PATH, jsonData, (err) => {
+        if (err) {
+            console.error(err.message);
+        } else {
+            console.log('Successful store data to file');
         }
-        console.log(`Batch results: ${batchSuccessful} successful, ${batchFailed} failed`);
-    }
+    })
 
-    console.log(`Overall: ${totalSuccessful} successful, ${totalFailed} failed operations`);
-
-    // Calculate TPS (Transactions Per Second)
-    stats.tps = (stats.totalOperations / totalOperationsTime) * 1000;
-
-    // Print statistics
-    console.log("\n=== Multi-Wallet Swap Load Test Statistics ===");
-    console.log(`Total operations: ${stats.totalOperations}`);
-    console.log(`Successful operations: ${stats.successfulOperations}`);
-    console.log(`Failed operations: ${stats.failedOperations}`);
-    console.log(`Success rate: ${((stats.successfulOperations / stats.totalOperations) * 100).toFixed(2)}%`);
-    console.log(`Total test time: ${totalTestTimeMs}ms`);
-    console.log(`TPS (Transactions Per Second): ${stats.tps.toFixed(2)}`);
-    console.log(`Wallets used: ${wallets.length}`);
-
-    return stats;
 };
 
 interface Config {
@@ -398,33 +341,33 @@ async function runTest(config: Config) {
         }
 
         // Check rune balance for each wallet and create edicts in pairs
-        // if (wallets.length > 1) {
-        //     console.log(`Checking rune balance for ${wallets.length - 1} remaining wallets`);
-        //
-        //     // Filter wallets that need runes (balance < runeAmount/2)
-        //     const walletsNeedingRunes = [];
-        //     const walletsWithRunes = [];
-        //     for (let i = 0; i < wallets.length; i++) {
-        //         try {
-        //             const runeBalanceResponse = await getRuneBalance(wallets[i].config, {
-        //                 address: wallets[i].address,
-        //                 runeId: runeResults.runeId
-        //             });
-        //             const balance = BigInt(runeBalanceResponse.balance || "0");
-        //             console.log(`Wallet ${i} rune balance: ${balance}`);
-        //             walletsWithRunes.push(wallets[i]);
-        //         } catch (error) {
-        //             console.log(`Error checking rune balance for wallet ${i}, wallet need runes`);
-        //             walletsNeedingRunes.push(wallets[i]);
-        //         }
-        //     }
-        //
-        //     console.log(`${walletsNeedingRunes.length} wallets need runes`);
-        //
-        //     if (walletsNeedingRunes.length > 0) {
-        //         await distributeRunesToWallets(walletsWithRunes, runeResults.runeId, walletsNeedingRunes)
-        //     }
-        // }
+        if (wallets.length > 1) {
+            console.log(`Checking rune balance for ${wallets.length - 1} remaining wallets`);
+
+            // Filter wallets that need runes (balance < runeAmount/2)
+            const walletsNeedingRunes = [];
+            const walletsWithRunes = [];
+            for (let i = 0; i < wallets.length; i++) {
+                try {
+                    const runeBalanceResponse = await getRuneBalance(wallets[i].config, {
+                        address: wallets[i].address,
+                        runeId: runeResults.runeId
+                    });
+                    const balance = BigInt(runeBalanceResponse.balance || "0");
+                    console.log(`Wallet ${i} rune balance: ${balance}`);
+                    walletsWithRunes.push(wallets[i]);
+                } catch (error) {
+                    console.log(`Error checking rune balance for wallet ${i}, wallet need runes`);
+                    walletsNeedingRunes.push(wallets[i]);
+                }
+            }
+
+            console.log(`${walletsNeedingRunes.length} wallets need runes`);
+
+            if (walletsNeedingRunes.length > 0) {
+                await distributeRunesToWallets(walletsWithRunes, runeResults.runeId, walletsNeedingRunes)
+            }
+        }
 
         // Step 4: Perform swap operations concurrently using all wallets
         console.log("Starting multi-wallet swap operations load test");
