@@ -1,9 +1,16 @@
-import {Address, encodeFunctionData, parseUnits} from "viem";
-import {getChainId} from "viem/actions";
-import {getEVMAddress, runeIdToBytes32, signTransaction} from "@midl-xyz/midl-js-executor";
-import {executorAddress, midlRegtestClient, midlRegtestWalletClient, uniswapRouterAddress, WETH} from "./config";
+import {Address, encodeFunctionData} from "viem";
+import {
+    addCompleteTxIntention,
+    addTxIntention,
+    convertBTCtoETH,
+    getEVMAddress,
+    runeIdToBytes32,
+    TransactionIntention
+} from "@midl-xyz/midl-js-executor";
+import {midlRegtestClient, uniswapRouterAddress, WETH} from "./config";
 import {executorAbi, uniswapV2Router02Abi} from "@/abi";
-import {getNonce, WalletInfo} from "./utils";
+import {WalletInfo} from "./utils";
+
 
 /**
  * Gets the asset address for a given rune ID
@@ -42,16 +49,10 @@ export const approveTokens = async (
     assetAddress: string,
     targetAddress: `0x${string}`,
     runeAmount: bigint,
-    btcTxHash: string,
-    publicKey: string,
     wallet: WalletInfo
-): Promise<string> => {
-    const chainId = await getChainId(midlRegtestWalletClient);
-    const nonce = await getNonce(wallet);
-
-    return await signTransaction(
-        wallet.config,
-        {
+): Promise<TransactionIntention> => {
+    return await addTxIntention(wallet.config, {
+        evmTransaction: {
             to: assetAddress as `0x${string}`,
             data: encodeFunctionData({
                 abi: [
@@ -69,15 +70,8 @@ export const approveTokens = async (
                 functionName: "approve",
                 args: [targetAddress, runeAmount],
             }),
-            btcTxHash: `0x${btcTxHash}`,
-            publicKey: publicKey as `0x${string}`,
-            gas: 50_000n,
-            gasPrice: 1000n,
-            chainId: chainId,
-            nonce: nonce,
-        },
-        midlRegtestWalletClient,
-    );
+        }
+    })
 };
 
 /**
@@ -94,18 +88,23 @@ export const addLiquidity = async (
     assetAddress: string,
     runeAmount: bigint,
     bitcoinAmount: number,
-    btcTxHash: string,
-    publicKey: string,
-    wallet: WalletInfo
-): Promise<string> => {
-    const chainId = await getChainId(midlRegtestWalletClient);
-    const nonce = await getNonce(wallet);
-    const evmAddress = getEVMAddress(publicKey as `0x${string}`);
+    wallet: WalletInfo,
+    runeId: string,
+): Promise<TransactionIntention> => {
 
-    return await signTransaction(
-        wallet.config,
-        {
+    const evmAddress = getEVMAddress(wallet.config, wallet.account);
+
+    return addTxIntention(wallet.config, {
+        hasRunesDeposit: true,
+        rune: {
+            id: runeId,
+            value: runeAmount,
+        },
+        satoshis: bitcoinAmount,
+        evmTransaction: {
             to: uniswapRouterAddress,
+            value: convertBTCtoETH(bitcoinAmount),
+
             data: encodeFunctionData({
                 abi: uniswapV2Router02Abi,
                 functionName: "addLiquidityETH",
@@ -121,17 +120,11 @@ export const addLiquidity = async (
                         ),
                     ),
                 ],
-            }),
-            btcTxHash: `0x${btcTxHash}`,
-            publicKey: publicKey as `0x${string}`,
-            chainId,
-            gas: 2_500_000n,
-            gasPrice: 1000n,
-            nonce: nonce,
-            value: parseUnits(bitcoinAmount.toString(), 18),
-        },
-        midlRegtestWalletClient
-    );
+            })
+        }
+    });
+
+
 };
 
 /**
@@ -146,42 +139,35 @@ export const addLiquidity = async (
 export const swapETHForTokens = async (
     assetAddress: string,
     bitcoinAmount: number,
-    btcTxHash: string,
-    publicKey: string,
     wallet: WalletInfo
-): Promise<string> => {
-    const chainId = await getChainId(midlRegtestWalletClient);
-    const evmAddress = getEVMAddress(publicKey as `0x${string}`);
-    const nonce = await getNonce(wallet);
+): Promise<TransactionIntention> => {
+    const evmAddress = getEVMAddress(wallet.config, wallet.account);
 
-    return await signTransaction(
+    return await addTxIntention(
         wallet.config,
         {
-            to: uniswapRouterAddress,
-            data: encodeFunctionData({
-                abi: uniswapV2Router02Abi,
-                functionName: "swapExactETHForTokens",
-                args: [
-                    0n,
-                    [WETH, assetAddress as Address],
-                    evmAddress,
-                    BigInt(
-                        Number.parseInt(
-                            ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
+            satoshis: bitcoinAmount,
+            evmTransaction: {
+                to: uniswapRouterAddress,
+                value: convertBTCtoETH(bitcoinAmount / 5),
+                data: encodeFunctionData({
+                    abi: uniswapV2Router02Abi,
+                    functionName: "swapExactETHForTokens",
+                    args: [
+                        0n,
+                        [WETH, assetAddress as Address],
+                        evmAddress,
+                        BigInt(
+                            Number.parseInt(
+                                ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
+                            ),
                         ),
-                    ),
-                ],
-            }),
-            btcTxHash: `0x${btcTxHash}`,
-            publicKey: publicKey as `0x${string}`,
-            chainId,
-            gas: 500_000n,
-            gasPrice: 1000n,
-            nonce: nonce,
-            value: parseUnits(bitcoinAmount.toString(), 18) / 5n,
+                    ],
+
+                }),
+            },
         },
-        midlRegtestWalletClient,
-    );
+    )
 };
 
 /**
@@ -194,33 +180,9 @@ export const swapETHForTokens = async (
  */
 export const completeTx = async (
     assetAddress: string,
-    btcTxHash: string,
-    publicKey: string,
-    wallet: WalletInfo): Promise<string> => {
-    const chainId = await getChainId(midlRegtestWalletClient);
-    const nonce = await getNonce(wallet);
-    return await signTransaction(
+    wallet: WalletInfo): Promise<TransactionIntention> => {
+    return await addCompleteTxIntention(
         wallet.config,
-        {
-            to: executorAddress,
-            data: encodeFunctionData({
-                abi: executorAbi,
-                functionName: "completeTx",
-                args: [
-                    publicKey as `0x${string}`,
-                    `0x0000000000000000000000000000000000000000000000000000000000000000`,
-                    [assetAddress as `0x${string}`],
-                    [1n],
-                ],
-            }),
-            btcTxHash: `0x${btcTxHash}`,
-            publicKey: publicKey as `0x${string}`,
-            chainId,
-            gas: 500_000n,
-            gasPrice: 1000n,
-            nonce: nonce,
-            value: 0n
-        },
-        midlRegtestWalletClient,
-    );
+        [assetAddress as Address],
+    )
 }
