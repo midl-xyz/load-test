@@ -1,5 +1,11 @@
-import {connect, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
-import {getPublicKey} from "@midl-xyz/midl-js-executor";
+import {connect, getDefaultAccount, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {
+    convertBTCtoETH,
+    finalizeBTCTransaction,
+    getEVMAddress,
+    signIntention,
+    TransactionIntention
+} from "@midl-xyz/midl-js-executor";
 import {
     AddressPurpose,
     configFrom,
@@ -8,12 +14,13 @@ import {
     regtest,
     uniswapRouterAddress
 } from "@/config";
-import {edictRunesForSwap, getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
+import {getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
 import {createEdictForWallet, createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
 import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
 import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
 import path from "path";
 import * as fs from "node:fs";
+import {encodeAbiParameters, keccak256, toHex} from "viem";
 
 const PAYLOAD_FILE_PATH = path.join(__dirname, 'payloads.json');
 
@@ -37,47 +44,48 @@ interface LoadTestStats {
  * @param assetAddress - The asset address for the swap
  * @param bitcoinAmount - The amount of Bitcoin to swap
  * @param runeId - The rune ID
- * @returns Promise<{txs: `0x${string}`[], txHex: string}> - The prepared transactions
+ * @returns The prepared transactions
  */
 const prepareTransactionsForWallet = async (
     wallet: WalletInfo,
     assetAddress: string,
     bitcoinAmount: number,
     runeId: string,
-): Promise<{ txs: `0x${string}`[], txHex: string, txId: string }> => {
-    const publicKey = getPublicKey(wallet.config, wallet.publicKey);
-
-    let txId: string
-    let txHex: string
-    // const btcTransferForCompleteTx = await transferBitcoinForSwap(multisigAddress, bitcoinAmount, wallet);
-    const btcTransferForCompleteTx = await edictRunesForSwap(multisigAddress, bitcoinAmount, wallet, runeId, 100);
-    txId = btcTransferForCompleteTx.tx.id
-    txHex = btcTransferForCompleteTx.tx.hex
-    const txs: `0x${string}`[] = []
+): Promise<{ txs: `0x07${string}`[], txHex: string, txId: string }> => {
+    const txs: TransactionIntention[] = []
 
     for (let i = 0; i < 4; i++) {
         const swapTx = await swapETHForTokens(
             assetAddress,
             bitcoinAmount,
-            txId,
-            publicKey as `0x${string}`,
             wallet,
         );
-        txs.push(swapTx as `0x${string}`)
+        txs.push(swapTx)
     }
 
     const cTx = await completeTx(
         assetAddress,
-        txId,
-        publicKey as `0x${string}`,
         wallet,
     )
-    txs.push(cTx as `0x${string}`)
+    txs.push(cTx)
+
+
+    const transferBTCResp = await finalizeBTCTransaction(wallet.config, txs, midlRegtestWalletClient, {
+        stateOverride: [{
+            address: getEVMAddress(wallet.config, getDefaultAccount((wallet.config))),
+            balance: txs.reduce((acc, it) => acc + (convertBTCtoETH(it.satoshis ?? 0)), 0n),
+        }]
+    })
+    const midlTxs: `0x07${string}`[] = []
+    for (const tx of txs) {
+        const midlTx = await signIntention(wallet.config, midlRegtestWalletClient, tx, txs, {txId: transferBTCResp.tx.id})
+        midlTxs.push(midlTx)
+    }
 
     return {
-        txs,
-        txHex,
-        txId
+        txs: midlTxs,
+        txHex: transferBTCResp.tx.hex,
+        txId: transferBTCResp.tx.id,
     };
 };
 
@@ -229,7 +237,8 @@ async function runTest(config: Config) {
             config: configFrom,
             publicKey: "",
             address: accounts[0].address,
-            privateKey: ""
+            privateKey: "",
+            account: accounts[0],
         })
         if (walletBalance === 0) {
             console.error("Base wallet balance is 0, please transfer some BTC to the base wallet");
@@ -288,7 +297,7 @@ async function runTest(config: Config) {
 
         // Step 3: Create an etchRune for one wallet and edicts for the others
         console.log("Creating runes and edicts for wallets...");
-        const btcPool = 1;
+        const btcPool = 100000000;
         const runePool = 50_000_000n;
 
         const runeResults = await createRunesAndEdictsForWallets(wallets);
@@ -298,24 +307,18 @@ async function runTest(config: Config) {
         // Only approve tokens and add liquidity for the first wallet and only if the rune doesn't already exist
         if (!runeResults.runeExists) {
             console.log("Broadcast btc tx to multisig address and waiting erc20 creation");
-            await createEdictForWallet(wallets[0], runeResults.runeId, 0.0001, 50_000n, multisigAddress, true);
+            const runeAmount = 50_000n;
+            await createEdictForWallet(wallets[0], runeResults.runeId, 0.0001, runeAmount, multisigAddress, true);
             const runeAddress = await waitRuneAddress(runeResults.runeId);
             runeResults.assetAddress = runeAddress;
             console.log(`Erc20 created, address: ${runeAddress}`);
             console.log("Rune is newly created, approving tokens and adding liquidity for the first wallet");
-
-            const btcTx1 = await createEdictForWallet(wallets[0], runeResults.runeId, btcPool, runePool, multisigAddress, false);
-
-            // Get public key for the first wallet
-            const pk = getPublicKey(wallets[0].config, wallets[0].publicKey);
 
             // Approve tokens for spending by the Uniswap router
             const approvalTxHash = await approveTokens(
                 runeResults.assetAddress,
                 uniswapRouterAddress,
                 runePool,
-                btcTx1.tx.id,
-                pk as `0x${string}`,
                 wallets[0]
             );
 
@@ -325,17 +328,55 @@ async function runTest(config: Config) {
                 runeResults.assetAddress,
                 runePool,
                 btcPool,
-                btcTx1.tx.id,
-                pk as `0x${string}`,
-                wallets[0]
+                wallets[0],
+                runeResults.runeId,
             );
 
+            const intentions = [approvalTxHash, addLiquidityTxHash];
+            const evmAddress = getEVMAddress(wallets[0].config, getDefaultAccount((wallets[0].config)));
+
+            const slot = keccak256(
+                encodeAbiParameters(
+                    [
+                        {
+                            type: 'address',
+                        },
+                        {type: 'uint256'},
+                    ],
+                    [evmAddress, 0n],
+                ),
+            );
+
+            const transferBtcResp = await finalizeBTCTransaction(wallets[0].config, intentions, midlRegtestWalletClient, {
+                stateOverride: [{
+                    address: evmAddress,
+                    balance: intentions.reduce((acc, it) => acc + (convertBTCtoETH(it.satoshis ?? 0) ?? 0n), 0n)
+                }, {
+                    address: runeResults.assetAddress as `0x${string}`,
+                    stateDiff: [{
+                        slot,
+                        value: toHex(50_000_000n, {size: 32})
+                    }]
+
+                }]
+            })
+
+            const signedTxs: `0x07${string}`[] = [];
+
+            for (const intention of intentions) {
+                const signedTx = await signIntention(wallets[0].config, midlRegtestWalletClient, intention, intentions, {
+                    txId: transferBtcResp.tx.id
+                })
+
+                signedTxs.push(signedTx);
+            }
+
             const txs = await midlRegtestWalletClient.sendBTCTransactions({
-                serializedTransactions: [approvalTxHash as `0x${string}`, addLiquidityTxHash as `0x${string}`],
-                btcTransaction: btcTx1.tx.hex,
+                serializedTransactions: signedTxs,
+                btcTransaction: transferBtcResp.tx.hex,
             })
             console.log("Approve and addLiquidityTx sent: ", txs);
-            await waitForTransaction(wallets[0].config, btcTx1.tx.id, 1);
+            await waitForTransaction(wallets[0].config, transferBtcResp.tx.id, 1);
         } else {
             console.log("Rune already exists, skipping token approval and liquidity addition");
         }
@@ -374,7 +415,7 @@ async function runTest(config: Config) {
         // Run the multi-wallet load test
         await runMultiWalletSwapLoadTest(
             runeResults.assetAddress,
-            0.0001,
+            10000,
             wallets,
             runeResults.runeId,
         );

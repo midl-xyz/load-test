@@ -1,5 +1,5 @@
 import {networks} from "bitcoinjs-lib";
-import {connect, createConfig} from "@midl-xyz/midl-js-core";
+import {Account, connect, createConfig} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
 import {AddressPurpose, bip32, ECPair, mempoolProvider, midlRegtestClient, regtest} from "./config";
 import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
@@ -52,6 +52,7 @@ export interface WalletInfo {
     address: string;
     publicKey: string;
     privateKey: string;
+    account: Account;
 }
 
 const nonceMutex = new Mutex();
@@ -70,7 +71,7 @@ export async function getNonce(wallet: WalletInfo): Promise<number> {
         // Format the public key using getPublicKey
         const formattedPublicKey = getPublicKey(wallet.config, publicKeyHex);
         // Get the EVM address from the public key
-        const evmAddress = getEVMAddress(formattedPublicKey as `0x${string}`);
+        const evmAddress = getEVMAddress(wallet.config, wallet.account);
 
         const release = await nonceMutex.acquire();
         try {
@@ -175,7 +176,10 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
         });
 
         // Connect the config
-        await connect(config, {purposes: [AddressPurpose.Ordinals, AddressPurpose.Payment], network: regtest});
+        const accounts = await connect(config, {
+            purposes: [AddressPurpose.Ordinals],
+            network: regtest
+        });
 
         // Get the address
         const configState = config.getState();
@@ -196,7 +200,8 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
             config,
             address,
             publicKey,
-            privateKey
+            privateKey,
+            account: accounts[0],
         });
 
         const isNewWallet = i >= originalMnemonicCount;
