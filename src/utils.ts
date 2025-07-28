@@ -1,12 +1,10 @@
 import {networks} from "bitcoinjs-lib";
-import {Account, connect, createConfig} from "@midl-xyz/midl-js-core";
+import {connect, createConfig} from "@midl-xyz/midl-js-core";
 import {mnemonicToSeedSync} from "bip39";
-import {AddressPurpose, bip32, ECPair, mempoolProvider, midlRegtestClient, regtest} from "./config";
-import {getEVMAddress, getPublicKey} from "@midl-xyz/midl-js-executor";
+import {AddressPurpose, bip32, ECPair, mempoolProvider, regtest} from "./config";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import {Mutex} from "async-mutex";
 import {getAssetAddressByRuneId} from "@/evm";
 import {zeroAddress} from "viem";
 import {keyPairConnector} from "@midl-xyz/midl-js-node";
@@ -52,60 +50,6 @@ export interface WalletInfo {
     address: string;
     publicKey: string;
     privateKey: string;
-    account: Account;
-}
-
-const nonceMutex = new Mutex();
-const noncesByAddress: { [address: string]: number } = {};
-const pendingNoncesByAddress: { [address: string]: number } = {};
-
-/**
- * Gets the nonce for a transaction
- * @param wallet - The wallet information
- * @returns Promise<number> - The nonce for the transaction
- */
-export async function getNonce(wallet: WalletInfo): Promise<number> {
-    try {
-        // Get the public key from the wallet
-        const publicKeyHex = wallet.publicKey;
-        // Format the public key using getPublicKey
-        const formattedPublicKey = getPublicKey(wallet.config, publicKeyHex);
-        // Get the EVM address from the public key
-        const evmAddress = getEVMAddress(wallet.config, wallet.account);
-
-        const release = await nonceMutex.acquire();
-        try {
-            // Always get the current transaction count from the blockchain
-            const transactionCount = await midlRegtestClient.getTransactionCount({
-                address: evmAddress
-            });
-
-            // Initialize or update the stored nonce
-            if (noncesByAddress[evmAddress] === undefined) {
-                noncesByAddress[evmAddress] = transactionCount;
-            } else {
-                // Use the maximum of the stored nonce and the blockchain nonce
-                noncesByAddress[evmAddress] = Math.max(noncesByAddress[evmAddress], transactionCount);
-            }
-
-            // Initialize pending nonce if needed
-            if (pendingNoncesByAddress[evmAddress] === undefined) {
-                pendingNoncesByAddress[evmAddress] = noncesByAddress[evmAddress];
-            }
-
-            // Get the next nonce (current pending nonce)
-            const nonce = pendingNoncesByAddress[evmAddress];
-
-            // Increment the pending nonce for the next transaction
-            pendingNoncesByAddress[evmAddress] = nonce + 1;
-            return nonce;
-        } finally {
-            release();
-        }
-    } catch (error) {
-        console.error("Error getting nonce:", error);
-        throw new Error(`Failed to get nonce: ${error}`);
-    }
 }
 
 /**
@@ -201,7 +145,6 @@ export async function createMultipleWallets(count: number): Promise<WalletInfo[]
             address,
             publicKey,
             privateKey,
-            account: accounts[0],
         });
 
         const isNewWallet = i >= originalMnemonicCount;

@@ -10,6 +10,7 @@ import {
 import {midlRegtestClient, uniswapRouterAddress, WETH} from "./config";
 import {executorAbi, uniswapV2Router02Abi} from "@/abi";
 import {WalletInfo} from "./utils";
+import {getDefaultAccount} from "@midl-xyz/midl-js-core";
 
 
 /**
@@ -92,14 +93,17 @@ export const addLiquidity = async (
     runeId: string,
 ): Promise<TransactionIntention> => {
 
-    const evmAddress = getEVMAddress(wallet.config, wallet.account);
+    const evmAddress = getEVMAddress(wallet.config, getDefaultAccount(wallet.config));
 
     return addTxIntention(wallet.config, {
         hasRunesDeposit: true,
-        rune: {
-            id: runeId,
-            value: runeAmount,
-        },
+        runes: [
+            {
+                id: runeId,
+                value: runeAmount,
+                address: assetAddress as Address
+            }
+        ],
         satoshis: bitcoinAmount,
         evmTransaction: {
             to: uniswapRouterAddress,
@@ -139,13 +143,22 @@ export const addLiquidity = async (
 export const swapETHForTokens = async (
     assetAddress: string,
     bitcoinAmount: number,
-    wallet: WalletInfo
+    wallet: WalletInfo,
+    runeId: string,
 ): Promise<TransactionIntention> => {
-    const evmAddress = getEVMAddress(wallet.config, wallet.account);
+    const evmAddress = getEVMAddress(wallet.config, getDefaultAccount(wallet.config));
 
     return await addTxIntention(
         wallet.config,
         {
+            hasRunesDeposit: true,
+            runes: [
+                {
+                    id: runeId,
+                    value: 1000n / 4n,
+                    address: assetAddress as Address,
+                },
+            ],
             satoshis: bitcoinAmount,
             evmTransaction: {
                 to: uniswapRouterAddress,
