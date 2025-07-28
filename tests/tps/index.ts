@@ -1,11 +1,5 @@
-import {connect, getDefaultAccount, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
-import {
-    convertBTCtoETH,
-    finalizeBTCTransaction,
-    getEVMAddress,
-    signIntention,
-    TransactionIntention
-} from "@midl-xyz/midl-js-executor";
+import {connect, getRuneBalance, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {finalizeBTCTransaction, signIntention, TransactionIntention} from "@midl-xyz/midl-js-executor";
 import {
     AddressPurpose,
     configFrom,
@@ -20,7 +14,6 @@ import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
 import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
 import path from "path";
 import * as fs from "node:fs";
-import {encodeAbiParameters, keccak256, toHex} from "viem";
 
 const PAYLOAD_FILE_PATH = path.join(__dirname, 'payloads.json');
 
@@ -59,6 +52,7 @@ const prepareTransactionsForWallet = async (
             assetAddress,
             bitcoinAmount,
             wallet,
+            runeId,
         );
         txs.push(swapTx)
     }
@@ -69,13 +63,7 @@ const prepareTransactionsForWallet = async (
     )
     txs.push(cTx)
 
-
-    const transferBTCResp = await finalizeBTCTransaction(wallet.config, txs, midlRegtestWalletClient, {
-        stateOverride: [{
-            address: getEVMAddress(wallet.config, getDefaultAccount((wallet.config))),
-            balance: txs.reduce((acc, it) => acc + (convertBTCtoETH(it.satoshis ?? 0)), 0n),
-        }]
-    })
+    const transferBTCResp = await finalizeBTCTransaction(wallet.config, txs, midlRegtestWalletClient)
     const midlTxs: `0x07${string}`[] = []
     for (const tx of txs) {
         const midlTx = await signIntention(wallet.config, midlRegtestWalletClient, tx, txs, {txId: transferBTCResp.tx.id})
@@ -238,7 +226,6 @@ async function runTest(config: Config) {
             publicKey: "",
             address: accounts[0].address,
             privateKey: "",
-            account: accounts[0],
         })
         if (walletBalance === 0) {
             console.error("Base wallet balance is 0, please transfer some BTC to the base wallet");
@@ -333,41 +320,12 @@ async function runTest(config: Config) {
             );
 
             const intentions = [approvalTxHash, addLiquidityTxHash];
-            const evmAddress = getEVMAddress(wallets[0].config, getDefaultAccount((wallets[0].config)));
-
-            const slot = keccak256(
-                encodeAbiParameters(
-                    [
-                        {
-                            type: 'address',
-                        },
-                        {type: 'uint256'},
-                    ],
-                    [evmAddress, 0n],
-                ),
-            );
-
-            const transferBtcResp = await finalizeBTCTransaction(wallets[0].config, intentions, midlRegtestWalletClient, {
-                stateOverride: [{
-                    address: evmAddress,
-                    balance: intentions.reduce((acc, it) => acc + (convertBTCtoETH(it.satoshis ?? 0) ?? 0n), 0n)
-                }, {
-                    address: runeResults.assetAddress as `0x${string}`,
-                    stateDiff: [{
-                        slot,
-                        value: toHex(50_000_000n, {size: 32})
-                    }]
-
-                }]
-            })
-
+            const transferBtcResp = await finalizeBTCTransaction(wallets[0].config, intentions, midlRegtestWalletClient)
             const signedTxs: `0x07${string}`[] = [];
-
             for (const intention of intentions) {
                 const signedTx = await signIntention(wallets[0].config, midlRegtestWalletClient, intention, intentions, {
                     txId: transferBtcResp.tx.id
                 })
-
                 signedTxs.push(signedTx);
             }
 
