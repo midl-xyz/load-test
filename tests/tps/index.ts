@@ -10,7 +10,7 @@ import {
 } from "@/config";
 import {getWalletBalance, transferBitcoinToMultipleWallets} from "@/bitcoin";
 import {createEdictForWallet, createRunesAndEdictsForWallets, distributeRunesToWallets} from "@/runes";
-import {addLiquidity, approveTokens, completeTx, swapETHForTokens} from "@/evm";
+import {addLiquidity, approveTokens, buildBtcIntention} from "@/evm";
 import {createMultipleWallets, waitRuneAddress, WalletInfo} from "@/utils";
 import path from "path";
 import * as fs from "node:fs";
@@ -47,21 +47,30 @@ const prepareTransactionsForWallet = async (
 ): Promise<{ txs: `0x07${string}`[], txHex: string, txId: string }> => {
     const txs: TransactionIntention[] = []
 
-    for (let i = 0; i < 4; i++) {
-        const swapTx = await swapETHForTokens(
-            assetAddress,
-            bitcoinAmount,
-            wallet,
-            runeId,
-        );
-        txs.push(swapTx)
-    }
+    // for (let i = 0; i < 4; i++) {
+    //     const swapTx = await swapETHForTokens(
+    //         assetAddress,
+    //         bitcoinAmount,
+    //         wallet,
+    //         runeId,
+    //     );
+    //     txs.push(swapTx)
+    // }
+    //
+    // const cTx = await completeTx(
+    //     assetAddress,
+    //     wallet,
+    // )
+    // txs.push(cTx)
 
-    const cTx = await completeTx(
-        assetAddress,
+    const randomAddress = ("0x" + (await import("crypto")).randomBytes(20).toString("hex")) as `0x${string}`;
+    const intention = await buildBtcIntention(assetAddress,
+        bitcoinAmount,
         wallet,
+        runeId,
+        randomAddress,
     )
-    txs.push(cTx)
+    txs.push(intention)
 
     const transferBTCResp = await finalizeBTCTransaction(wallet.config, txs, midlRegtestWalletClient)
     const midlTxs: `0x07${string}`[] = []

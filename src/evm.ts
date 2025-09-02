@@ -172,7 +172,7 @@ export const swapETHForTokens = async (
                         evmAddress,
                         BigInt(
                             Number.parseInt(
-                                ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
+                                ((new Date().getTime() + 10000 * 60 * 120) / 1000).toString(),
                             ),
                         ),
                     ],
@@ -197,5 +197,31 @@ export const completeTx = async (
     return await addCompleteTxIntention(
         wallet.config,
         [assetAddress as Address],
+    )
+}
+
+export async function buildBtcIntention(
+    assetAddress: string,
+    bitcoinAmount: number,
+    wallet: WalletInfo,
+    runeId: string,
+    to: `0x${string}`): Promise<TransactionIntention> {
+    return await addTxIntention(
+        wallet.config,
+        {
+            hasRunesDeposit: true,
+            runes: [
+                {
+                    id: runeId,
+                    value: 1000n,
+                    address: assetAddress as Address,
+                },
+            ],
+            satoshis: bitcoinAmount,
+            evmTransaction: {
+                to: to,
+                value: 0n,
+            },
+        },
     )
 }
