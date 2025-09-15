@@ -1,42 +1,7 @@
-import {edictRune, getUTXOs, transferBTC} from "@midl-xyz/midl-js-core";
-import {parseUnits} from "viem";
-import {configFrom} from "./config";
-import {WalletInfo} from "./utils";
+import {getUTXOs} from "@midl-xyz/midl-js-core";
 
-/**
- * Transfers Bitcoin from configTo to multiple wallets
- * @param wallets - The wallets to send Bitcoin to
- * @param btcAmounts - The btcAmounts of Bitcoin to send to each wallet in satoshis
- * @returns Promise<any[]> - The results of the transfers
- */
-export const transferBitcoinToMultipleWallets = async (wallets: WalletInfo[], btcAmounts: number[]) => {
-    const results = [];
-    const transfers: { receiver: string, amount: number }[] = [];
-
-    for (let i = 0; i < wallets.length; i++) {
-        transfers.push({
-            receiver: wallets[i].address,
-            amount: btcAmounts[i],
-        });
-    }
-
-    const result = await transferBTC(configFrom, {
-        transfers: transfers,
-        publish: true,
-        feeRate: 3,
-    },);
-    console.log("Transaction ID:", result.tx.id);
-    results.push(result);
-    return results;
-};
-
-/**
- * Gets the total BTC balance from UTXOs for a wallet
- * @param wallet - The wallet to check
- * @returns Promise<number> - The total BTC balance in satoshis
- */
-export const getWalletBalance = async (wallet: WalletInfo): Promise<number> => {
-    const utxos = await getUTXOs(wallet.config, wallet.address);
+export const getWalletBTCBalance = async (config: any, address: string): Promise<number> => {
+    const utxos = await getUTXOs(config, address);
 
     if (!utxos || utxos.length === 0) {
         return 0;
@@ -46,50 +11,37 @@ export const getWalletBalance = async (wallet: WalletInfo): Promise<number> => {
     return utxos.reduce((total, utxo) => total + utxo.value, 0);
 };
 
+export async function txIsUsed(txId: string) {
+    while (true) {
+        try {
+            let response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${txId}/outspend/0`)
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            let data = await response.json();
+            const {txid} = data;
+            if (!txid) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue
+            }
 
-/**
- * Creates an edict for runes swap operation
- * @param receiverAddress - The address to send runes to
- * @param bitcoinAmount - The amount of Bitcoin to send
- * @param wallet - The wallet information
- * @param runeId - The rune ID to use
- * @param retry - Number of retry attempts if the operation fails
- * @returns Promise<any> - The result of the edict
- */
-export const edictRunesForSwap = async (receiverAddress: string, bitcoinAmount: number, wallet: WalletInfo, runeId: string, retry: number): Promise<any> => {
-    try {
-        return await edictRune(wallet.config, {
-            transfers: [
-                {
-                    runeId: runeId,
-                    amount: 1000n,
-                    receiver: receiverAddress,
-                },
-                {
-                    receiver: receiverAddress,
-                    amount: 20_000 + Number(parseUnits(bitcoinAmount.toString(), 8)),
-                },
-            ],
-            publish: false,
-        })
-    } catch (error: any) {
-        if (retry === 0) {
-            throw new Error(`Failed to edict runes: ${error}`)
+            response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${txid}`)
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            data = await response.json();
+            const {status} = data
+            if (!status) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue
+            }
+            const {confirmed} = status
+            if (confirmed) {
+                return
+            }
+        } catch (error) {
+            console.error('Error check tx used status:', error);
+            throw error;
         }
-        console.info(`Failed to edict runes: ${error}, try again later.`)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return await edictRunesForSwap(receiverAddress, bitcoinAmount, wallet, runeId, retry - 1)
     }
 }
-
-export const transferBitcoinForSwap = async (receiverAddress: string, bitcoinAmount: number, wallet: WalletInfo) => {
-    return await transferBTC(wallet.config, {
-        transfers: [
-            {
-                receiver: receiverAddress,
-                amount: 10_000 + Number(parseUnits(bitcoinAmount.toString(), 8)),
-            },
-        ],
-        publish: false,
-    });
-};
