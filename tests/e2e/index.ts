@@ -14,6 +14,8 @@ import {
     getAssetAddressByRuneId,
     getERC20Balance,
     getPair,
+    getReserves,
+    Reserve,
     swapBTCForTokens,
     swapTokenAForTokenB,
     swapTokensForBTC,
@@ -67,7 +69,7 @@ export async function runE2ETests() {
 
     const walletBalance = await getWalletBTCBalance(connectionConfig, accounts[0].address)
     console.log(`Base wallet balance is ${walletBalance}`);
-    if (walletBalance < satoshisToWei(1e8)) {
+    if (walletBalance < 1e8) {
         throw new Error("Base wallet balance is lower than 1 BTC");
     }
 
@@ -84,10 +86,17 @@ export async function runE2ETests() {
     let pairAddress = await getPair(tokenA, WETH)
     if (!pairAddress || pairAddress === zeroAddress) {
         console.log("Pool is not created, try to create pool tokenA -> BTC");
-        await createBTCPool(baseWallet, {tokenAddress: tokenA, btcAmount: 1000000, tokensForBTC: 2n, runeId: runeAId})
+        await createBTCPool(baseWallet, {
+            tokenAddress: tokenA,
+            satoshiAmount: 1000000,
+            tokensForSatoshi: 2n,
+            runeId: runeAId
+        })
         pairAddress = await getPair(tokenA, WETH)
         console.log("TokenA -> BTC pool is created with address: ", pairAddress);
     }
+    const reserves = await getReserves(pairAddress)
+    console.log("Reserves for tokenA -> BTC", reserves)
 
     console.log("Check liquidity tokenA -> tokenB")
     let tokenToTokenPair = await getPair(tokenA, tokenB)
@@ -104,19 +113,23 @@ export async function runE2ETests() {
         tokenToTokenPair = await getPair(tokenA, tokenB)
         console.log("TokenA -> TokenB pool is created with address: ", tokenToTokenPair);
     }
+    const tokenToTokenReserves = await getReserves(tokenToTokenPair)
+    console.log("Reserves for tokenA -> tokenB", tokenToTokenReserves)
 
+    const randomValues = await getRandomSwapValues(reserves, tokenToTokenReserves, tokenA, tokenB)
+    console.log("Random swap values", randomValues)
 
     console.log("Setup test wallets")
-    const testWallets = await setupTestWallets(baseWallet, runeAId)
+    const testWallets = await setupTestWallets(baseWallet, runeAId, randomValues.BTCTokenA, randomValues.TokenABTC + randomValues.TokenATokenB)
 
     console.log("Create swap BTC -> tokenA")
     for (const testWallet of testWallets) {
-        await swapBTCToTokens(testWallet, {tokenAddress: tokenA, btcAmount: 1000, runeId: runeAId})
+        await swapBTCToTokens(testWallet, {tokenAddress: tokenA, btcAmount: randomValues.BTCTokenA, runeId: runeAId})
     }
 
     console.log("Create swap tokenA -> BTC")
     for (const testWallet of testWallets) {
-        await swapTokensToBTC(testWallet, {tokenAddress: tokenA, tokensAmount: 1000n, runeId: runeAId})
+        await swapTokensToBTC(testWallet, {tokenAddress: tokenA, tokensAmount: randomValues.TokenABTC, runeId: runeAId})
     }
 
     console.log("Create swap tokenA -> tokenB")
@@ -124,7 +137,7 @@ export async function runE2ETests() {
         await swapTokensToTokens(testWallet, {
             tokenAAddress: tokenA as `0x${string}`,
             tokenBAddress: tokenB as `0x${string}`,
-            tokenAAmount: 100n,
+            tokenAAmount: randomValues.TokenATokenB,
             runeAId: runeAId,
             runeBId: runeBId,
         })
@@ -166,12 +179,11 @@ async function getAsset(wallet: WalletInfo, runeId?: string, tokenAddress?: stri
 
 async function createBTCPool(wallet: WalletInfo, poolDescription: {
     tokenAddress: string,
-    btcAmount: number,
-    tokensForBTC: bigint,
+    satoshiAmount: number,
+    tokensForSatoshi: bigint,
     runeId: string,
 }): Promise<void> {
-    const tokenAmount = BigInt(poolDescription.btcAmount) * poolDescription.tokensForBTC
-
+    const tokenAmount = BigInt(satoshisToWei(poolDescription.satoshiAmount)) * poolDescription.tokensForSatoshi
     const approvalTxHash = await approveTokens(
         poolDescription.tokenAddress,
         uniswapRouterAddress,
@@ -182,7 +194,7 @@ async function createBTCPool(wallet: WalletInfo, poolDescription: {
     const addLiquidityTxHash = await addLiquidity(
         poolDescription.tokenAddress,
         tokenAmount,
-        poolDescription.btcAmount,
+        poolDescription.satoshiAmount,
         wallet,
         poolDescription.runeId,
     );
@@ -252,7 +264,8 @@ async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
         })
     ];
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
-    await txIsUsed(res.btcTxId)
+    const btcResultTxHash = await txIsUsed(res.btcTxId)
+    console.log("btcResultTxHash", btcResultTxHash)
 
     const tokensAfterSwap = await getERC20Balance(swapBTCOptions.tokenAddress, wallet.evmAddress)
     const runesAfterSwap = await getRuneBalance(wallet.config, {address: wallet.address, runeId: swapBTCOptions.runeId})
@@ -284,7 +297,8 @@ async function swapTokensToBTC(wallet: WalletInfo, swapTokensOptions: {
         await completeTx(wallet, {satoshis: 0})
     ];
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
-    await txIsUsed(res.btcTxId)
+    const btcResultTxHash = await txIsUsed(res.btcTxId)
+    console.log("btcResultTxHash", btcResultTxHash)
 
     const afterEvmBalance = await midlRegtestClient.getBalance({address: wallet.evmAddress})
     const afterBTCBalance = await getWalletBTCBalance(wallet.config, wallet.address)
@@ -341,7 +355,8 @@ async function swapTokensToTokens(wallet: WalletInfo, swapTokensOptions: {
         })
     ]
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
-    await txIsUsed(res.btcTxId)
+    const btcResultTxHash = await txIsUsed(res.btcTxId)
+    console.log("btcResultTxHash", btcResultTxHash)
 
     const tokensAfterSwap = await getERC20Balance(swapTokensOptions.tokenAAddress, wallet.evmAddress)
     console.log("TokenA balance after swap: ", tokensAfterSwap)
@@ -360,6 +375,36 @@ async function swapTokensToTokens(wallet: WalletInfo, swapTokensOptions: {
         throw new Error("Incorrect amount of runes for withdrawal")
     }
     return res.btcTxId
+}
+
+
+async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToTokenReserves: Reserve, tokenAAddress: string, tokenBAddress: string): Promise<{
+    BTCTokenA: number,
+    TokenABTC: bigint,
+    TokenATokenB: bigint
+}> {
+    const getRandomBigInt = (max: bigint, percentage: number = 0.1): bigint => {
+        const maxValue = max * BigInt(Math.floor(percentage * 100)) / 100n
+        if (maxValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
+            return BigInt(Math.floor(Math.random() * Number(maxValue)))
+        } else {
+            return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
+        }
+    }
+
+    const [BTCReserves, TokenAFromBTCPool] = BTCTokenReserves.tokenAAddress === WETH
+        ? [BTCTokenReserves.tokenA, BTCTokenReserves.tokenB]
+        : [BTCTokenReserves.tokenB, BTCTokenReserves.tokenA]
+
+    const TokenAFromTokenPool = TokenToTokenReserves.tokenAAddress === tokenAAddress
+        ? TokenToTokenReserves.tokenA
+        : TokenToTokenReserves.tokenB
+
+    return {
+        BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
+        TokenABTC: getRandomBigInt(TokenAFromBTCPool),
+        TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
+    }
 }
 
 

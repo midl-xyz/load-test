@@ -1,4 +1,4 @@
-import {Address, encodeFunctionData} from "viem";
+import {Address, encodeFunctionData, zeroAddress} from "viem";
 import {
     addCompleteTxIntention,
     addTxIntention,
@@ -11,6 +11,7 @@ import {executorAddress, midlRegtestClient, uniswapFactoryAddress, uniswapRouter
 import {executorAbi, uniswapV2Router02Abi} from "@/abi";
 import {WalletInfo} from "./utils";
 import {abi as IUniswapV2Factory} from '@uniswap/v2-core/build/IUniswapV2Factory.json';
+import {abi as IUniswapV2Pair} from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 
 
 /**
@@ -369,3 +370,49 @@ export const calculateTokensOut = async (
         throw error;
     }
 };
+
+export interface Reserve {
+    tokenAAddress: string,
+    tokenBAddress: string,
+    tokenA: bigint,
+    tokenB: bigint
+}
+
+export async function getReserves(pairAddress: string): Promise<Reserve> {
+    if (!pairAddress || pairAddress === zeroAddress) {
+        throw new Error("Invalid pair address");
+    }
+
+    try {
+        const [token0, token1, reserves] = await Promise.all([
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'token0',
+            }),
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'token1',
+            }),
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'getReserves',
+            })
+        ]);
+        if (!reserves || !(Array.isArray(reserves)) || reserves.length < 3) {
+            throw new Error("Invalid reserve address");
+        }
+        const reservesArray = reserves as Array<any>
+        return {
+            tokenAAddress: token0 as string,
+            tokenBAddress: token1 as string,
+            tokenA: reservesArray[0],
+            tokenB: reservesArray[1]
+        }
+    } catch (error) {
+        console.error(`Error getting reserves for pair ${pairAddress}:`, error);
+        throw new Error(`Failed to get reserves: ${error}`);
+    }
+}

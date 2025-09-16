@@ -134,8 +134,7 @@ export async function createWalletsWithMnemonics(count: number): Promise<WalletI
     return wallets;
 }
 
-export async function setupTestWallets(baseWallet: WalletInfo, runeId: string): Promise<WalletInfo[]> {
-    console.log("Setup test wallets")
+export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, satoshi: number, rune: bigint): Promise<WalletInfo[]> {
     const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
     const testWallets = await createWalletsWithMnemonics(amountOfTestWallets)
     const edictRuneParams: EdictRuneParams = {
@@ -147,11 +146,11 @@ export async function setupTestWallets(baseWallet: WalletInfo, runeId: string): 
         edictRuneParams.transfers.push(
             {
                 receiver: testWallet.address,
-                amount: 5000
+                amount: satoshi
             },
             {
                 runeId: runeId,
-                amount: 2000n,
+                amount: rune,
                 receiver: testWallet.address,
             }
         )

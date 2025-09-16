@@ -11,7 +11,7 @@ export const getWalletBTCBalance = async (config: any, address: string): Promise
     return utxos.reduce((total, utxo) => total + utxo.value, 0);
 };
 
-export async function txIsUsed(txId: string) {
+export async function txIsUsed(txId: string): Promise<string> {
     while (true) {
         try {
             let response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${txId}/outspend/0`)
@@ -19,13 +19,13 @@ export async function txIsUsed(txId: string) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             let data = await response.json();
-            const {txid} = data;
-            if (!txid) {
+            const {txid: nextTxId} = data;
+            if (!nextTxId) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 continue
             }
 
-            response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${txid}`)
+            response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${nextTxId}`)
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -37,7 +37,7 @@ export async function txIsUsed(txId: string) {
             }
             const {confirmed} = status
             if (confirmed) {
-                return
+                return nextTxId
             }
         } catch (error) {
             console.error('Error check tx used status:', error);
