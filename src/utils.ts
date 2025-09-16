@@ -75,3 +75,9 @@ export function generateRandomString(length: number): string {
     }
     return result;
 }
+
+export function isWithinTolerance(actual: number, expected: number, tolerancePercent: number = 5): boolean {
+    const tolerance = Math.abs(expected * tolerancePercent / 100);
+    const difference = Math.abs(actual - expected);
+    return difference <= tolerance;
+}

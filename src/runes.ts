@@ -7,7 +7,6 @@ export const createRuneForWallet = async (wallet: WalletInfo, name: string, prem
     const etching = await etchRune(wallet.config, {
         name: name,
         receiver: wallet.address,
-        amount: 100_000_000,
         premine: premine,
     });
 

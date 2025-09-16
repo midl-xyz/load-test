@@ -1,9 +1,22 @@
 import {address, networks} from "bitcoinjs-lib";
-import {AddressPurpose, connect, createConfig, getRuneBalance, RuneBalanceResponse} from "@midl-xyz/midl-js-core";
+import {
+    AddressPurpose,
+    connect,
+    createConfig,
+    getRuneBalance,
+    getUTXOs,
+    RuneBalanceResponse
+} from "@midl-xyz/midl-js-core";
 import {keyPairConnector} from "@midl-xyz/midl-js-node";
 import {bitcoinNetwork, mempoolProvider, midlRegtestClient, runesProvider, uniswapRouterAddress, WETH} from "@/config";
 import {getWalletBTCBalance, txIsUsed} from "@/bitcoin";
-import {executeBTCTransactionWithIntentions, generateRandomString, waitRuneAddress, WalletInfo} from "@/utils";
+import {
+    executeBTCTransactionWithIntentions,
+    generateRandomString,
+    isWithinTolerance,
+    waitRuneAddress,
+    WalletInfo
+} from "@/utils";
 import {createRuneForWallet} from "@/runes";
 import {
     addLiquidity,
@@ -21,7 +34,13 @@ import {
     swapTokensForBTC,
     transferRuneToMIDL
 } from "@/evm";
-import {getEVMAddress, satoshisToWei, TransactionIntention, weiToSatoshis} from "@midl-xyz/midl-js-executor";
+import {
+    getEVMAddress,
+    RUNES_MAGIC_VALUE,
+    satoshisToWei,
+    TransactionIntention,
+    weiToSatoshis
+} from "@midl-xyz/midl-js-executor";
 import {zeroAddress} from "viem";
 import {setupTestWallets} from "./wallet";
 
@@ -150,7 +169,7 @@ async function getAsset(wallet: WalletInfo, runeId?: string, tokenAddress?: stri
 }> {
     if (!runeId) {
         const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
-        runeId = await createRuneForWallet(wallet, runeName, 100_000_000_000)
+        runeId = await createRuneForWallet(wallet, runeName, Number.MAX_SAFE_INTEGER)
     } else {
         try {
             const res = await getRuneBalance(wallet.config, {address: wallet.address, runeId: runeId});
@@ -183,7 +202,7 @@ async function createBTCPool(wallet: WalletInfo, poolDescription: {
     tokensForSatoshi: bigint,
     runeId: string,
 }): Promise<void> {
-    const tokenAmount = BigInt(satoshisToWei(poolDescription.satoshiAmount)) * poolDescription.tokensForSatoshi
+    const tokenAmount = BigInt(poolDescription.satoshiAmount) * poolDescription.tokensForSatoshi
     const approvalTxHash = await approveTokens(
         poolDescription.tokenAddress,
         uniswapRouterAddress,
@@ -297,14 +316,25 @@ async function swapTokensToBTC(wallet: WalletInfo, swapTokensOptions: {
         await completeTx(wallet, {satoshis: 0})
     ];
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
-    const btcResultTxHash = await txIsUsed(res.btcTxId)
-    console.log("btcResultTxHash", btcResultTxHash)
+    const btcResultTxId = await txIsUsed(res.btcTxId)
+    console.log("btcResultTxId", btcResultTxId)
 
     const afterEvmBalance = await midlRegtestClient.getBalance({address: wallet.evmAddress})
     const afterBTCBalance = await getWalletBTCBalance(wallet.config, wallet.address)
     console.log(`After evm balance: ${afterEvmBalance} wei, ${weiToSatoshis(afterEvmBalance)} sat`);
     console.log(`After btc balance: ${afterBTCBalance}`);
     console.log(`Profit: `, afterBTCBalance - beforeBTCBalance);
+
+    const utxos = await getUTXOs(wallet.config, wallet.address)
+    const reqOutput = utxos.find(value => {
+        return value.txid === btcResultTxId && value.value !== Number(RUNES_MAGIC_VALUE)
+    })
+    if (!reqOutput) {
+        throw new Error("Incorrect amount of runes for withdrawal")
+    }
+    if (!isWithinTolerance(reqOutput.value, weiToSatoshis(predictedTokens), 10)) {
+        throw new Error(`Values do not match the 5% tolerance. Expected: ${weiToSatoshis(predictedTokens)}, received: ${reqOutput.value}`);
+    }
     return res.btcTxId
 }
 
