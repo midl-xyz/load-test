@@ -1,5 +1,5 @@
 import {BitcoinNetwork, MempoolSpaceProvider, RunehookProvider} from "@midl-xyz/midl-js-core";
-import {Chain, createPublicClient, createWalletClient, http} from "viem";
+import {Address, Chain, createPublicClient, createWalletClient, http} from "viem";
 import {config} from "dotenv"
 
 config();
@@ -13,23 +13,20 @@ if (!geth) {
     throw new Error("Geth URL is missing");
 }
 
-// Source address private keys
-export const uniswapRouterAddress = "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34";
-export const WETH = "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A";
-export const executorAddress = "0xEbF0Ece9A6cbDfd334Ce71f09fF450cd06D57753";
-export const uniswapFactoryAddress = "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5"
-const localMempool = "http://localhost:80"
-const localGeth = "http://localhost:8545"
+export const uniswapRouterAddress = process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34";
+export const WETH = process.env.WETH as Address ?? "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A";
+export const executorAddress = process.env.EXECUTOR_ADDRESS as Address ?? "0xEbF0Ece9A6cbDfd334Ce71f09fF450cd06D57753";
+export const uniswapFactoryAddress = process.env.UNISWAP_FACTORY_ADDRESS as Address ?? "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5"
 
 export const bitcoinNetwork: BitcoinNetwork = {
     id: "regtest",
     network: "regtest",
-    explorerUrl: process.env.MEMPOOL_URL ?? localMempool,
+    explorerUrl: mempool,
 }
 
 export const mempoolProvider = new MempoolSpaceProvider(
     {
-        regtest: process.env.MEMPOOL_URL ?? localMempool,
+        regtest: mempool,
         mainnet: "https://mempool.space",
         testnet: "https://mempool.space/testnet",
         testnet4: "https://mempool.space/testnet4",
@@ -39,7 +36,7 @@ export const mempoolProvider = new MempoolSpaceProvider(
 
 export const runesProvider = new RunehookProvider(
     {
-        regtest: process.env.MEMPOOL_URL ?? localMempool,
+        regtest: mempool,
         mainnet: "https://mempool.space",
         testnet: "https://mempool.space/testnet",
         testnet4: "https://mempool.space/testnet4",
@@ -53,7 +50,7 @@ export const midlRegtest: Chain = {
     id: 0x309,
     rpcUrls: {
         default: {
-            http: [process.env.GETH_URL ?? localGeth],
+            http: [geth],
         },
     },
     name: "midl-regtest",
@@ -67,16 +64,14 @@ export const midlRegtest: Chain = {
 export const regtest: BitcoinNetwork = {
     id: "regtest",
     network: "regtest",
-    explorerUrl: process.env.MEMPOOL_URL ?? localMempool,
+    explorerUrl: geth,
 }
 
-// Create a public client for the MIDL regtest chain
 export const midlRegtestClient = createPublicClient({
     chain: midlRegtest,
     transport: http(),
 });
 
-// Create a wallet client for the MIDL regtest chain
 export const midlRegtestWalletClient = createWalletClient({
     chain: midlRegtest,
     transport: http(),
