@@ -70,7 +70,7 @@ Units note: in code, token values are multiplied by 10^18 to convert to a wei-li
 ## How to Run
 
 1. Install dependencies: `pnpm i`.
-2. Copy `tests/e2e/.env-exapmle` → `./.env` and adjust values if needed.
+2. Copy `./.env-exapmle` → `./.env` and adjust values if needed.
 3. Make sure all required services are reachable at the addresses specified in .env.
 4. Run the test: `pnpm run e2e`.
 
