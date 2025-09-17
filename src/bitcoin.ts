@@ -12,9 +12,21 @@ export const getWalletBTCBalance = async (config: any, address: string): Promise
 };
 
 export async function txIsUsed(txId: string): Promise<string> {
+    const mempoolUrl = process.env.MEMPOOL_URL;
+    if (!mempoolUrl) {
+        throw new Error('Missing mempool URL');
+    }
     while (true) {
         try {
-            let response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${txId}/outspend/0`)
+            let response = await fetch(
+                `${mempoolUrl}/api/tx/${txId}/outspend/0`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            )
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -25,7 +37,15 @@ export async function txIsUsed(txId: string): Promise<string> {
                 continue
             }
 
-            response = await fetch(`${process.env.MEMPOOL_URL!}/api/tx/${nextTxId}`)
+            response = await fetch(
+                `${mempoolUrl}/api/tx/${nextTxId}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            )
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -43,5 +63,50 @@ export async function txIsUsed(txId: string): Promise<string> {
             console.error('Error check tx used status:', error);
             throw error;
         }
+    }
+}
+
+interface TxStatusResponse {
+    confirmed: boolean;
+    block_height?: number;
+    block_hash?: string;
+    block_time?: number;
+}
+
+export async function getRuneId(txId: string): Promise<string> {
+    try {
+        const mempoolUrl = process.env.MEMPOOL_URL;
+        if (!process.env.MEMPOOL_URL) {
+            throw new Error('Missing mempool URL');
+        }
+        const response = await fetch(
+            `${mempoolUrl}/api/tx/${txId}/status`,
+            {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: TxStatusResponse = await response.json();
+
+        const blockResponse = await fetch(
+            `${mempoolUrl}/api/block/${data.block_hash}/txs`,
+            {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        const blockTxs = await blockResponse.json();
+        const txIndex = blockTxs.findIndex((tx: any) => tx.txid === txId);
+        return `${data.block_height}:${txIndex}`;
+    } catch (error) {
+        console.error('Error check tx used status:', error);
+        throw error;
     }
 }

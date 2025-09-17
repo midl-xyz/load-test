@@ -53,7 +53,7 @@ export async function executeBTCTransactionWithIntentions(
         serializedTransactions: signedTxs,
         btcTransaction: transferBtcResp.tx.hex,
     });
-    console.log(`Transactions hashes: `, txs);
+    console.log(`MIDL transactions: ${txs}, BTC transaction: ${transferBtcResp.tx.id}`);
 
     for (const txHash of txs) {
         console.log(`waitForTransactionReceipt tx ${txHash}`);

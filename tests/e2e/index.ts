@@ -87,7 +87,7 @@ export async function runE2ETests() {
     }
 
     const walletBalance = await getWalletBTCBalance(connectionConfig, accounts[0].address)
-    console.log(`Base wallet balance is ${walletBalance}`);
+    console.log(`Base wallet balance is ${walletBalance} satoshis`);
     if (walletBalance < 1e8) {
         throw new Error("Base wallet balance is lower than 1 BTC");
     }
@@ -107,8 +107,8 @@ export async function runE2ETests() {
         console.log("Pool is not created, try to create pool tokenA -> BTC");
         await createBTCPool(baseWallet, {
             tokenAddress: tokenA,
-            satoshiAmount: 1000000,
-            tokensForSatoshi: 2n,
+            satoshiAmount: 1e8,
+            tokensAmount: 120_000n * (10n ** 18n),
             runeId: runeAId
         })
         pairAddress = await getPair(tokenA, WETH)
@@ -124,8 +124,8 @@ export async function runE2ETests() {
         await createTokensPool(baseWallet, {
             tokenAAddress: tokenA as `0x${string}`,
             tokenBAddress: tokenB as `0x${string}`,
-            tokenAAmount: 10000n,
-            tokenBAmount: 10000n,
+            tokenAAmount: 100n * (10n ** 18n),
+            tokenBAmount: 200000n * (10n ** 18n),
             runeAId: runeAId,
             runeBId: runeBId,
         })
@@ -173,7 +173,7 @@ async function getAsset(wallet: WalletInfo, runeId?: string, tokenAddress?: stri
 }> {
     if (!runeId) {
         const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
-        runeId = await createRuneForWallet(wallet, runeName, Number.MAX_SAFE_INTEGER)
+        runeId = await createRuneForWallet(wallet, runeName, Number(BigInt(100_000_000_000) * (10n ** 18n)))
     } else {
         try {
             const res = await getRuneBalance(wallet.config, {address: wallet.address, runeId: runeId});
@@ -203,21 +203,29 @@ async function getAsset(wallet: WalletInfo, runeId?: string, tokenAddress?: stri
 async function createBTCPool(wallet: WalletInfo, poolDescription: {
     tokenAddress: string,
     satoshiAmount: number,
-    tokensForSatoshi: bigint,
+    tokensAmount: bigint,
     runeId: string,
 }): Promise<void> {
-    const tokenAmount = BigInt(poolDescription.satoshiAmount) * poolDescription.tokensForSatoshi
+    const satoshiAmount = process.env.BTC_POOL_SATOSHI_AMOUNT
+        ? Number(process.env.BTC_POOL_SATOSHI_AMOUNT)
+        : poolDescription.satoshiAmount;
+
+    const tokensAAmount = process.env.BTC_POOL_TOKENS_AMOUNT
+        ? BigInt(process.env.BTC_POOL_TOKENS_AMOUNT)
+        : poolDescription.tokensAmount;
+
+
     const approvalTxHash = await approveTokens(
         poolDescription.tokenAddress,
         uniswapRouterAddress,
-        tokenAmount,
+        tokensAAmount,
         wallet,
     );
 
     const addLiquidityTxHash = await addLiquidity(
         poolDescription.tokenAddress,
-        tokenAmount,
-        poolDescription.satoshiAmount,
+        tokensAAmount,
+        satoshiAmount,
         wallet,
         poolDescription.runeId,
     );
@@ -234,23 +242,31 @@ async function createTokensPool(wallet: WalletInfo, poolDescription: {
     runeAId: string,
     runeBId: string,
 }) {
+    const tokenAAmount = process.env.TOKEN_TO_TOKEN_POOL_A_AMOUNT
+        ? BigInt(process.env.TOKEN_TO_TOKEN_POOL_A_AMOUNT)
+        : poolDescription.tokenAAmount;
+
+    const tokenBAmount = process.env.TOKEN_TO_TOKEN_POOL_B_AMOUNT
+        ? BigInt(process.env.TOKEN_TO_TOKEN_POOL_B_AMOUNT)
+        : poolDescription.tokenBAmount;
+
     const approvalATxHash = await approveTokens(
         poolDescription.tokenAAddress,
         uniswapRouterAddress,
-        poolDescription.tokenAAmount,
+        tokenAAmount,
         wallet,
     );
     const approvalBTxHash = await approveTokens(
         poolDescription.tokenBAddress,
         uniswapRouterAddress,
-        poolDescription.tokenBAmount,
+        tokenBAmount,
         wallet,
     );
     const addLiquidityTx = await addLiquidityTokenToToken(
         poolDescription.tokenAAddress,
         poolDescription.tokenBAddress,
-        poolDescription.tokenAAmount,
-        poolDescription.tokenBAmount,
+        tokenAAmount,
+        tokenBAmount,
         wallet,
         poolDescription.runeAId,
         poolDescription.runeBId,
@@ -294,7 +310,7 @@ async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
     const runesAfterSwap = await getRuneBalance(wallet.config, {address: wallet.address, runeId: swapBTCOptions.runeId})
     console.log(`EVM asset balance after swap: ${tokensAfterSwap}`)
     console.log("Runes balance after swap: ", runesAfterSwap)
-    console.log("Runes profit: ", runesAfterSwap.balance - runesBeforeSwap.balance)
+    console.log("Runes profit: ", (runesAfterSwap.balance - runesBeforeSwap.balance))
 
     if (tokensAfterSwap !== tokensBeforeSwap || predictedTokens !== (runesAfterSwap.balance - runesBeforeSwap.balance)) {
         throw new Error("Incorrect amount of runes for withdrawal")
