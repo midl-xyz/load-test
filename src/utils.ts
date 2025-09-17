@@ -1,8 +1,8 @@
 import {Account} from "@midl-xyz/midl-js-core";
-import {midlRegtestWalletClient} from "./config";
-import {getAssetAddressByRuneId} from "@/evm";
+import {midlRegtestWalletClient, WETH} from "./config";
+import {getAssetAddressByRuneId, Reserve} from "@/evm";
 import {zeroAddress} from "viem";
-import {finalizeBTCTransaction, signIntention, TransactionIntention} from "@midl-xyz/midl-js-executor";
+import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl-xyz/midl-js-executor";
 import {waitForTransactionReceipt} from "viem/actions";
 
 /**
@@ -80,4 +80,38 @@ export function isWithinTolerance(actual: number, expected: number, tolerancePer
     const tolerance = Math.abs(expected * tolerancePercent / 100);
     const difference = Math.abs(actual - expected);
     return difference <= tolerance;
+}
+
+export interface randomSwapValue {
+    BTCTokenA: number,
+    TokenABTC: bigint,
+    TokenATokenB: bigint
+}
+
+export async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToTokenReserves: Reserve, tokenAAddress: string): Promise<randomSwapValue[]> {
+    const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
+    const res: randomSwapValue[] = []
+    const getRandomBigInt = (max: bigint, percentage: number = 0.01): bigint => {
+        const maxValue = max * BigInt(Math.floor(percentage * 100)) / 100n
+        if (maxValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
+            return BigInt(Math.floor(Math.random() * Number(maxValue)))
+        } else {
+            return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
+        }
+    }
+    const [BTCReserves, TokenAFromBTCPool] = BTCTokenReserves.tokenAAddress === WETH
+        ? [BTCTokenReserves.tokenA, BTCTokenReserves.tokenB]
+        : [BTCTokenReserves.tokenB, BTCTokenReserves.tokenA]
+
+    const TokenAFromTokenPool = TokenToTokenReserves.tokenAAddress === tokenAAddress
+        ? TokenToTokenReserves.tokenA
+        : TokenToTokenReserves.tokenB
+    for (let i = 0; i < amountOfTestWallets; i++) {
+        res.push({
+            BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
+            TokenABTC: getRandomBigInt(TokenAFromBTCPool),
+            TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
+        })
+    }
+    return res
 }

@@ -13,6 +13,7 @@ import {getWalletBTCBalance, txIsUsed} from "@/bitcoin";
 import {
     executeBTCTransactionWithIntentions,
     generateRandomString,
+    getRandomSwapValues,
     isWithinTolerance,
     waitRuneAddress,
     WalletInfo
@@ -28,7 +29,6 @@ import {
     getERC20Balance,
     getPair,
     getReserves,
-    Reserve,
     swapBTCForTokens,
     swapTokenAForTokenB,
     swapTokensForBTC,
@@ -135,28 +135,32 @@ export async function runE2ETests() {
     const tokenToTokenReserves = await getReserves(tokenToTokenPair)
     console.log("Reserves for tokenA -> tokenB", tokenToTokenReserves)
 
-    const randomValues = await getRandomSwapValues(reserves, tokenToTokenReserves, tokenA, tokenB)
+    const randomValues = await getRandomSwapValues(reserves, tokenToTokenReserves, tokenA)
     console.log("Random swap values", randomValues)
 
     console.log("Setup test wallets")
-    const testWallets = await setupTestWallets(baseWallet, runeAId, randomValues.BTCTokenA, randomValues.TokenABTC + randomValues.TokenATokenB)
+    const testWallets = await setupTestWallets(baseWallet, runeAId, randomValues)
 
     console.log("Create swap BTC -> tokenA")
-    for (const testWallet of testWallets) {
-        await swapBTCToTokens(testWallet, {tokenAddress: tokenA, btcAmount: randomValues.BTCTokenA, runeId: runeAId})
+    for (const [i, testWallet] of testWallets.entries()) {
+        await swapBTCToTokens(testWallet, {tokenAddress: tokenA, btcAmount: randomValues[i].BTCTokenA, runeId: runeAId})
     }
 
     console.log("Create swap tokenA -> BTC")
-    for (const testWallet of testWallets) {
-        await swapTokensToBTC(testWallet, {tokenAddress: tokenA, tokensAmount: randomValues.TokenABTC, runeId: runeAId})
+    for (const [i, testWallet] of testWallets.entries()) {
+        await swapTokensToBTC(testWallet, {
+            tokenAddress: tokenA,
+            tokensAmount: randomValues[i].TokenABTC,
+            runeId: runeAId
+        })
     }
 
     console.log("Create swap tokenA -> tokenB")
-    for (const testWallet of testWallets) {
+    for (const [i, testWallet] of testWallets.entries()) {
         await swapTokensToTokens(testWallet, {
             tokenAAddress: tokenA as `0x${string}`,
             tokenBAddress: tokenB as `0x${string}`,
-            tokenAAmount: randomValues.TokenATokenB,
+            tokenAAmount: randomValues[i].TokenATokenB,
             runeAId: runeAId,
             runeBId: runeBId,
         })
@@ -405,36 +409,6 @@ async function swapTokensToTokens(wallet: WalletInfo, swapTokensOptions: {
         throw new Error("Incorrect amount of runes for withdrawal")
     }
     return res.btcTxId
-}
-
-
-async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToTokenReserves: Reserve, tokenAAddress: string, tokenBAddress: string): Promise<{
-    BTCTokenA: number,
-    TokenABTC: bigint,
-    TokenATokenB: bigint
-}> {
-    const getRandomBigInt = (max: bigint, percentage: number = 0.1): bigint => {
-        const maxValue = max * BigInt(Math.floor(percentage * 100)) / 100n
-        if (maxValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
-            return BigInt(Math.floor(Math.random() * Number(maxValue)))
-        } else {
-            return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
-        }
-    }
-
-    const [BTCReserves, TokenAFromBTCPool] = BTCTokenReserves.tokenAAddress === WETH
-        ? [BTCTokenReserves.tokenA, BTCTokenReserves.tokenB]
-        : [BTCTokenReserves.tokenB, BTCTokenReserves.tokenA]
-
-    const TokenAFromTokenPool = TokenToTokenReserves.tokenAAddress === tokenAAddress
-        ? TokenToTokenReserves.tokenA
-        : TokenToTokenReserves.tokenB
-
-    return {
-        BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
-        TokenABTC: getRandomBigInt(TokenAFromBTCPool),
-        TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
-    }
 }
 
 

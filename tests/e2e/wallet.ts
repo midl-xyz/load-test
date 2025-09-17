@@ -10,7 +10,7 @@ import {
     waitForTransaction
 } from "@midl-xyz/midl-js-core";
 import {keyPairConnector} from "@midl-xyz/midl-js-node";
-import {WalletInfo} from "@/utils";
+import {randomSwapValue, WalletInfo} from "@/utils";
 import * as bip39 from 'bip39';
 import {getEVMAddress} from "@midl-xyz/midl-js-executor";
 
@@ -134,23 +134,24 @@ export async function createWalletsWithMnemonics(count: number): Promise<WalletI
     return wallets;
 }
 
-export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, satoshi: number, rune: bigint): Promise<WalletInfo[]> {
+export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, depositValues: randomSwapValue[]): Promise<WalletInfo[]> {
     const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
     const testWallets = await createWalletsWithMnemonics(amountOfTestWallets)
+    const potentialFee = 3000 * 3
     const edictRuneParams: EdictRuneParams = {
         from: baseWallet.address,
         publish: true,
         transfers: []
     }
-    for (const testWallet of testWallets) {
+    for (const [i, testWallet] of testWallets.entries()) {
         edictRuneParams.transfers.push(
             {
                 receiver: testWallet.address,
-                amount: satoshi
+                amount: depositValues[i].BTCTokenA + potentialFee
             },
             {
                 runeId: runeId,
-                amount: rune,
+                amount: depositValues[i].TokenABTC + depositValues[i].TokenATokenB,
                 receiver: testWallet.address,
             }
         )
