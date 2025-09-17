@@ -108,7 +108,7 @@ export async function runE2ETests() {
         await createBTCPool(baseWallet, {
             tokenAddress: tokenA,
             satoshiAmount: 1e8,
-            tokensAmount: 120_000n * (10n ** 18n),
+            tokensAmount: 120_000n,
             runeId: runeAId
         })
         pairAddress = await getPair(tokenA, WETH)
@@ -124,8 +124,8 @@ export async function runE2ETests() {
         await createTokensPool(baseWallet, {
             tokenAAddress: tokenA as `0x${string}`,
             tokenBAddress: tokenB as `0x${string}`,
-            tokenAAmount: 100n * (10n ** 18n),
-            tokenBAmount: 200000n * (10n ** 18n),
+            tokenAAmount: 100n,
+            tokenBAmount: 200000n,
             runeAId: runeAId,
             runeBId: runeBId,
         })
@@ -210,10 +210,10 @@ async function createBTCPool(wallet: WalletInfo, poolDescription: {
         ? Number(process.env.BTC_POOL_SATOSHI_AMOUNT)
         : poolDescription.satoshiAmount;
 
-    const tokensAAmount = process.env.BTC_POOL_TOKENS_AMOUNT
+    let tokensAAmount = process.env.BTC_POOL_TOKENS_AMOUNT
         ? BigInt(process.env.BTC_POOL_TOKENS_AMOUNT)
         : poolDescription.tokensAmount;
-
+    tokensAAmount = tokensAAmount * (10n ** 18n);
 
     const approvalTxHash = await approveTokens(
         poolDescription.tokenAddress,
@@ -242,13 +242,15 @@ async function createTokensPool(wallet: WalletInfo, poolDescription: {
     runeAId: string,
     runeBId: string,
 }) {
-    const tokenAAmount = process.env.TOKEN_TO_TOKEN_POOL_A_AMOUNT
+    let tokenAAmount = process.env.TOKEN_TO_TOKEN_POOL_A_AMOUNT
         ? BigInt(process.env.TOKEN_TO_TOKEN_POOL_A_AMOUNT)
         : poolDescription.tokenAAmount;
+    tokenAAmount = tokenAAmount * (10n ** 18n);
 
-    const tokenBAmount = process.env.TOKEN_TO_TOKEN_POOL_B_AMOUNT
+    let tokenBAmount = process.env.TOKEN_TO_TOKEN_POOL_B_AMOUNT
         ? BigInt(process.env.TOKEN_TO_TOKEN_POOL_B_AMOUNT)
         : poolDescription.tokenBAmount;
+    tokenBAmount = tokenBAmount * (10n ** 18n);
 
     const approvalATxHash = await approveTokens(
         poolDescription.tokenAAddress,
