@@ -88,7 +88,7 @@ export async function runE2ETests() {
 
     const walletBalance = await getWalletBTCBalance(connectionConfig, accounts[0].address)
     console.log(`Base wallet balance is ${walletBalance} satoshis`);
-    if (walletBalance < 1e8) {
+    if (walletBalance < 2e8) {
         throw new Error("Base wallet balance is lower than 1 BTC");
     }
 

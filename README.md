@@ -1,38 +1,80 @@
-# Load Test
+# MIDL E2E Test: Overview and Setup
 
-A tool for testing transaction performance.
+This repository contains an end-to-end test that verifies the full cycle of swaps between BTC and tokens.
 
-## Overview
+The test automatically does the following:
 
-This load testing framework is designed to simulate high-volume transaction scenarios to evaluate the performance of
-blockchain infrastructure components including Bitcoin nodes, Ethereum clients, and associated services.
+- Connects to a base Bitcoin wallet via mnemonic (Ordinals/Runes address);
+- Checks the base wallet balance (minimum 2 BTC);
+- Determines assets A and B:
+    - If RUNE_* and the corresponding ERC-20 addresses are provided — uses them;
+    - If not — mints the rune(s), registers them in MIDL, and obtains the corresponding ERC-20 address;
+- Ensures liquidity pools exist:
+    - tokenA ↔ BTC;
+    - tokenA ↔ tokenB;
+      If pools are missing — creates them with parameters from .env (or code defaults);
+- Creates a set of test wallets and executes a series of swaps:
+    - BTC → tokenA;
+    - tokenA → BTC;
+    - tokenA → tokenB;
+- Compares actual balance changes with predicted values.
 
-## Prerequisites for Local Testing
+Run command: `npm run e2e` (or `pnpm run e2e`).
 
-Before running the load tests, ensure the following services are running:
+## Environment Requirements
 
-1. **Bitcoin Core (bitcoind)** - Bitcoin node with RPC enabled
-2. **Auto-miner** - Automated block mining for test environment
-3. **Runehook + Runehook API** - Runes protocol indexer and API service
-4. **UTXO Service** - Service handling the `/utxos/:address` endpoint (currently deployed as separate microservice)
-5. **Mempool** - Bitcoin mempool tracker and API
-6. **Geth + BTC Observer** - Ethereum client with Bitcoin network observer
+For local runs you must have the following services up:
 
-## Configuration
+- Bitcoin Core/Regtest with auto-mining;
+- Mempool API available at MEMPOOL_URL;
+- Geth (local EVM) + BTC Observer/Executor (contracts and addresses in .env: EXECUTOR_ADDRESS, UNISWAP_* and WETH);
+- Runes indexer (Runehook + API).
 
-The environment is configured for `localhost` by default. To modify the configuration for different environments, update
-the settings in [`./src/config.ts`](./src/config.ts).
+## Environment Variables (.env-example in tests/e2e/)
 
-## Real-time Queue Monitoring
+Below is the list of variables, their purpose, and whether they are required. Example file: `tests/e2e/.env-exapmle`.
 
-The BTC Observer includes an HTTP listener with a monitoring endpoint at `http://localhost:8888/graphs` where you can
-view real-time transaction queue metrics.
+Required:
 
-### Example Results
+- MNEMOMIC — mnemonic of the base Bitcoin wallet (Ordinals). The test won’t start without it.
+- GETH_URL — Geth HTTP RPC endpoint.
+- MEMPOOL_URL — mempool API HTTP endpoint.
+- UNISWAP_ROUTER_ADDRESS — Uniswap V2 router address on EVM.
+- UNISWAP_FACTORY_ADDRESS — Uniswap V2 factory address.
+- WETH — WETH token address.
+- EXECUTOR_ADDRESS — Executor contract address.
 
-Below is an example of processing 10,000 transactions at 20 TPS:
+Optional (may be omitted):
 
-- **X-axis**: Time
-- **Y-axis**: Number of transactions in queue
+- RUNE_A_ID — ID of rune A (format `block_height:tx_index`, e.g. `5540:3`). If not set — the test will mint a new rune.
+- RUNE_B_ID — ID of rune B. If not set — the test will mint a new rune.
+- TOKEN_A_ERC20 — ERC-20 address corresponding to RUNE_A_ID. If not set — a mapping in MIDL will be created and the
+  address obtained.
+- TOKEN_B_ERC20 — ERC-20 address corresponding to RUNE_B_ID. Same as above.
+- TEST_WALLETS — number of additional test wallets. Default: 1.
 
-![queue_examole.png](queue_example.png)
+Liquidity parameters (optional, override code defaults):
+
+- BTC_POOL_SATOSHI_AMOUNT — amount of satoshis for the tokenA ↔ BTC pool when created. Default: 100000000 (1 BTC).
+- BTC_POOL_TOKENS_AMOUNT — amount of token A (integer units before multiplying by 10^18) for the tokenA ↔ BTC pool.
+  Default: 120000.
+- TOKEN_TO_TOKEN_POOL_A_AMOUNT — amount of token A (integer units before multiplying by 10^18) for the tokenA ↔ tokenB
+  pool. Default: 100.
+- TOKEN_TO_TOKEN_POOL_B_AMOUNT — amount of token B (integer units before multiplying by 10^18) for the tokenA ↔ tokenB
+  pool. Default: 200000.
+
+Units note: in code, token values are multiplied by 10^18 to convert to a wei-like format.
+
+## How to Run
+
+1. Install dependencies: `pnpm i`.
+2. Copy `tests/e2e/.env-exapmle` → `./.env` and adjust values if needed.
+3. Make sure all required services are reachable at the addresses specified in .env.
+4. Run the test: `pnpm run e2e`.
+
+The logs will show before/after balances, predicted swap results, and transaction hashes.
+
+## Security
+
+- Do not use a real mnemonic or real funds in this environment.
+- Do not commit private data (.env) to VCS.

@@ -1,12 +1,10 @@
 {
-  "name": "loadTest",
+  "name": "e2e",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "prapare-payload": "npx tsx tests/tps/index.ts --txCount 20",
-    "run-load-test": "k6 run ./tests/tps/script.js"
+    "e2e": "npx tsx tests/e2e/index.ts"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
