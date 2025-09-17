@@ -14,3 +14,4 @@ yarn-error.log*
 /dist/
 /tests/e2e/mnemonic.json
 /tests/e2e/.env
+/.env

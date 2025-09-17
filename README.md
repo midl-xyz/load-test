@@ -52,6 +52,8 @@ Optional (may be omitted):
   address obtained.
 - TOKEN_B_ERC20 — ERC-20 address corresponding to RUNE_B_ID. Same as above.
 - TEST_WALLETS — number of additional test wallets. Default: 1.
+- MULTISIG_ADDRESS — multisig address to use for the transaction, if not provided, the default multisig address for the
+  current network will be used.
 
 Liquidity parameters (optional, override code defaults):
 
