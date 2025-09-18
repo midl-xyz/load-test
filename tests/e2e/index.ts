@@ -352,7 +352,7 @@ async function swapTokensToBTC(wallet: WalletInfo, swapTokensOptions: {
         return value.txid === btcResultTxId && value.value !== Number(RUNES_MAGIC_VALUE)
     })
     if (!reqOutput) {
-        throw new Error("Can't find BTC withdrawal UTXO")
+        throw new Error(`Can't find BTC withdrawal UTXO, check btcResultTxId: ${btcResultTxId}`)
     }
     if (!isWithinTolerance(reqOutput.value, weiToSatoshis(predictedTokens), 10)) {
         throw new Error(`Values do not match the 10% tolerance. Expected: ${weiToSatoshis(predictedTokens)}, received: ${reqOutput.value}`);

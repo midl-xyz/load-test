@@ -38,7 +38,7 @@ export async function executeBTCTransactionWithIntentions(
         midlRegtestWalletClient,
         {
             skipEstimateGas: skipEstimateGasMulti,
-            multisigAddress: process.env.MULTISIG_ADDRESS,
+            multisigAddress: process.env.MULTISIG_ADDRESS ? process.env.MULTISIG_ADDRESS : undefined,
         }
     );
 
