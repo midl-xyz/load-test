@@ -11,12 +11,16 @@ export const getWalletBTCBalance = async (config: any, address: string): Promise
     return utxos.reduce((total, utxo) => total + utxo.value, 0);
 };
 
-export async function txIsUsed(txId: string): Promise<string> {
+export async function txIsUsed(txId: string, timeoutMs: number = 300000): Promise<string> {
     const mempoolUrl = process.env.MEMPOOL_URL;
     if (!mempoolUrl) {
         throw new Error('Missing mempool URL');
     }
+    const startTime = new Date().getTime();
     while (true) {
+        if (Date.now() - startTime > timeoutMs) {
+            throw new Error(`Timeout exceeded: transaction ${txId} was not used within ${timeoutMs}ms`);
+        }
         try {
             let response = await fetch(
                 `${mempoolUrl}/api/tx/${txId}/outspend/0`,
