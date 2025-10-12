@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import {bitcoinNetwork, mempoolProvider, runesProvider} from '@/config';
+import {bitcoinNetwork, maestroProvider, mempoolProvider} from '@/config';
 import {
     AddressPurpose,
     connect,
@@ -62,7 +62,7 @@ async function createWalletFromMnemonic(mnemonic: string): Promise<WalletInfo> {
             })
         ],
         provider: mempoolProvider,
-        runesProvider: runesProvider,
+        runesProvider: maestroProvider,
     });
 
     // Connect the config

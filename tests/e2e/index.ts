@@ -8,7 +8,14 @@ import {
     RuneBalanceResponse
 } from "@midl-xyz/midl-js-core";
 import {keyPairConnector} from "@midl-xyz/midl-js-node";
-import {bitcoinNetwork, mempoolProvider, midlRegtestClient, runesProvider, uniswapRouterAddress, WETH} from "@/config";
+import {
+    bitcoinNetwork,
+    maestroProvider,
+    mempoolProvider,
+    midlRegtestClient,
+    uniswapRouterAddress,
+    WETH
+} from "@/config";
 import {getWalletBTCBalance, txIsUsed} from "@/bitcoin";
 import {
     executeBTCTransactionWithIntentions,
@@ -65,7 +72,7 @@ export async function runE2ETests() {
             ],
             provider: mempoolProvider,
             persist: false,
-            runesProvider: runesProvider,
+            runesProvider: maestroProvider,
         }
     )
 

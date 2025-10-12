@@ -43,6 +43,7 @@ Required:
 - UNISWAP_FACTORY_ADDRESS — Uniswap V2 factory address.
 - WETH — WETH token address.
 - EXECUTOR_ADDRESS — Executor contract address.
+- MAESTRO_URL - ulr to maestro indexer
 
 Optional (may be omitted):
 

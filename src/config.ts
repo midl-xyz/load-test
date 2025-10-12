@@ -1,4 +1,4 @@
-import {BitcoinNetwork, MempoolSpaceProvider, RunehookProvider} from "@midl-xyz/midl-js-core";
+import {BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider} from "@midl-xyz/midl-js-core";
 import {Address, Chain, createPublicClient, createWalletClient, http} from "viem";
 import {config} from "dotenv"
 
@@ -11,6 +11,11 @@ if (!mempool) {
 const geth = process.env.GETH_URL;
 if (!geth) {
     throw new Error("Geth URL is missing");
+}
+
+const maestro = process.env.MAESTRO_URL;
+if (!maestro) {
+    throw new Error("Mestro URL is missing");
 }
 
 export const uniswapRouterAddress = process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34";
@@ -34,13 +39,9 @@ export const mempoolProvider = new MempoolSpaceProvider(
     }
 )
 
-export const runesProvider = new RunehookProvider(
+export const maestroProvider = new MaestroSymphonyProvider(
     {
-        regtest: mempool,
-        mainnet: "https://mempool.space",
-        testnet: "https://mempool.space/testnet",
-        testnet4: "https://mempool.space/testnet4",
-        signet: "https://mempool.space/signet",
+        regtest: maestro,
     }
 )
 
