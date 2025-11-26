@@ -55,7 +55,7 @@ import {setupTestWallets} from "./wallet";
 export async function runE2ETests() {
     console.log('Running E2E Tests');
 
-    const mnemonic = process.env.MNEMOMIC;
+    const mnemonic = process.env.MNEMONIC;
     if (!mnemonic) {
         throw new Error("Mnemonic for base wallet is missing");
     }
