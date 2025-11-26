@@ -1,5 +1,4 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import { zeroAddress } from "viem";
 
 const deploy: DeployFunction = async ({ midl }) => {
   console.log("Starting deployment process...");
