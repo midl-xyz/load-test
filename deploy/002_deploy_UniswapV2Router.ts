@@ -1,17 +1,18 @@
-import type { DeployFunction } from "hardhat-deploy/types";
+import type {DeployFunction} from "hardhat-deploy/types";
 
-const deploy: DeployFunction = async ({ midl }) => {
-  console.log("Starting deployment process...");
+const deploy: DeployFunction = async ({midl}) => {
+    console.log("Starting deployment process...");
 
-  await midl.initialize();
+    await midl.initialize();
 
-  const UniswapV2Factory = await midl.getDeployment("UniswapV2Factory");
+    const UniswapV2Factory = await midl.getDeployment("UniswapV2Factory");
+    const WETH = await midl.getDeployment("WETH9");
 
-  await midl.deploy("UniswapV2Router02", {
-    args: [UniswapV2Factory?.address, midl.getEVMAddress()],
-  });
+    await midl.deploy("UniswapV2Router02", {
+        args: [UniswapV2Factory?.address, WETH?.address],
+    });
 
-  await midl.execute();
+    await midl.execute();
 };
 
 deploy.tags = ["main", "UniswapV2Router02"];
