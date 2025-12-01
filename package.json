@@ -2,23 +2,20 @@
   "name": "e2e",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
   "scripts": {
-    "e2e": "npx tsx tests/e2e/index.ts",
-    "mode:script": "./switch-mode.sh script",
-    "mode:hardhat": "./switch-mode.sh hardhat",
-    "hh:deploy": "pnpm mode:hardhat && hardhat deploy",
-    "hh:deploy:reset": "pnpm mode:hardhat && hardhat deploy --reset",
-    "test:e2e": "pnpm mode:script && pnpm e2e"
+    "e2e": "tsx tests/e2e/index.ts",
+    "hardhat": "hardhat --tsconfig tsconfig.hardhat.json",
+    "hh:deploy": "pnpm hardhat deploy",
+    "hh:deploy:reset": "pnpm hardhat deploy --reset"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
     "@logtape/logtape": "^1.1.0",
     "@midl-xyz/ethers": "6.13.0-4",
-    "@midl-xyz/midl-js-core": "npm:@midl/core@3.0.0-next.3",
-    "@midl-xyz/midl-js-executor": "npm:@midl/executor@3.0.0-next.3",
-    "@midl-xyz/midl-js-node": "npm:@midl/node@3.0.0-next.3",
-    "@midl/hardhat-deploy": "3.0.0-next.3",
+    "@midl-xyz/midl-js-core": "npm:@midl/core@3.0.0-next.4",
+    "@midl-xyz/midl-js-executor": "npm:@midl/executor@3.0.0-next.4",
+    "@midl-xyz/midl-js-node": "npm:@midl/node@3.0.0-next.4",
+    "@midl/hardhat-deploy": "3.0.0-next.4",
     "@nomicfoundation/hardhat-ethers": "^4.0.3",
     "@typechain/hardhat": "^9.1.0",
     "@uniswap/lib": "4.0.1-alpha",
@@ -42,6 +39,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.5.3"
   },
   "pnpm": {

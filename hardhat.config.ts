@@ -5,15 +5,7 @@ import type {HardhatUserConfig} from "hardhat/config";
 import {resolve} from "path";
 import {MaestroSymphonyProvider, MempoolSpaceProvider} from "@midl-xyz/midl-js-core";
 
-
 dotenvConfig({path: resolve(__dirname, "./.env")});
-
-const walletsPaths = {
-    default: "m/86'/1'/0'/0/0",
-};
-
-const accounts = [process.env.MNEMONIC as string];
-
 
 const config: HardhatUserConfig = {
     networks: {
@@ -26,7 +18,7 @@ const config: HardhatUserConfig = {
         networks: {
             default: {
                 mnemonic:
-                    "wolf figure stamp truly enter raise correct twice agree shadow subway dad",
+                  process.env.MNEMONIC ?? "wolf figure stamp truly enter raise correct twice agree shadow subway dad",
                 confirmationsRequired: 1,
                 btcConfirmationsRequired: 1,
                 hardhatNetwork: "default",
