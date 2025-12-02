@@ -1,8 +1,8 @@
-import {Account} from "@midl-xyz/midl-js-core";
+import {Account} from "@midl/core";
 import {midlRegtestWalletClient, WETH} from "./config";
 import {getAssetAddressByRuneId, Reserve} from "@/evm";
 import {zeroAddress} from "viem";
-import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl-xyz/midl-js-executor";
+import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl/executor";
 import {waitForTransactionReceipt} from "viem/actions";
 
 /**

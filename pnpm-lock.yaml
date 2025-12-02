@@ -20,18 +20,18 @@ importers:
       '@midl-xyz/ethers':
         specifier: 6.13.0-4
         version: 6.13.0-4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      '@midl-xyz/midl-js-core':
-        specifier: npm:@midl/core@3.0.0-next.4
-        version: '@midl/core@3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)'
-      '@midl-xyz/midl-js-executor':
-        specifier: npm:@midl/executor@3.0.0-next.4
-        version: '@midl/executor@3.0.0-next.4(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)'
-      '@midl-xyz/midl-js-node':
-        specifier: npm:@midl/node@3.0.0-next.4
-        version: '@midl/node@3.0.0-next.4(@midl/core@3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)'
+      '@midl/core':
+        specifier: 3.0.0-next.5
+        version: 3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/executor':
+        specifier: 3.0.0-next.5
+        version: 3.0.0-next.5(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
       '@midl/hardhat-deploy':
-        specifier: 3.0.0-next.4
-        version: 3.0.0-next.4(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+        specifier: 3.0.0-next.5
+        version: 3.0.0-next.5(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/node':
+        specifier: 3.0.0-next.5
+        version: 3.0.0-next.5(@midl/core@3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)
       '@nomicfoundation/hardhat-ethers':
         specifier: ^4.0.3
         version: 4.0.3(bufferutil@4.0.9)(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(utf-8-validate@5.0.10)
@@ -540,27 +540,27 @@ packages:
   '@midl/contracts@1.0.7':
     resolution: {integrity: sha512-xFMAJ3iZVuVbV3MMj9hoPC3qXBZ/qYGELxUKQRMCR4/Scooj3Kd7tcSycg21LiW9At5AMEXutx3R/NGnQBNhVg==}
 
-  '@midl/core@3.0.0-next.4':
-    resolution: {integrity: sha512-5HuWHQH+ZEtKCh16DLrk4lwuGuYxnycE7PClfFoxmNmhrarPjDDjf2WFDH4QAJysY02DWxg6+aa+Kx58TiBA3g==}
+  '@midl/core@3.0.0-next.5':
+    resolution: {integrity: sha512-wU4+Urey3RbaarpuaRTKOSmgDGUFnQza8LW+RIxhkvh+Yjooeys9gjS+jcVXOTpp1jZHpJcgol5+YIhcZr93YA==}
 
-  '@midl/executor@3.0.0-next.4':
-    resolution: {integrity: sha512-fDr98YBcsJuHInqajZ/YR239gJ+tJmaR9qd7az4Gfb1Qvrcy+s9vQQulTfcZrGvbFjLu44NeMSWy28Na0ifV+g==}
+  '@midl/executor@3.0.0-next.5':
+    resolution: {integrity: sha512-wmgf5WORpK+126K8De9YVGqSA53zELMeMP44MKa5YhiF03xH4jO6QEPhN9nNxJ2hUMMvbMv2ZJ6kZyMqBR4pRQ==}
     peerDependencies:
       '@midl/viem': '*'
       bitcoinjs-lib: 7.0.0-rc.0
 
-  '@midl/hardhat-deploy@3.0.0-next.4':
-    resolution: {integrity: sha512-MCke0ld+fYJEvIHph+MAgtGNAoCuGI5ThrEPX1Y0GG7LtmPshJ1TzdKqb0KtHHdVqnHTD15INxkOsaQ3d75p1w==}
+  '@midl/hardhat-deploy@3.0.0-next.5':
+    resolution: {integrity: sha512-OJ25+XGsO4fDsb3HFzOJokqTMiVSoUsdFBorqXqSLyH0VXE7mJcGM9vhoPE7UY15KS6cLc5CgKUcDhBGneOeRw==}
     peerDependencies:
       hardhat: ^2.22.17
 
-  '@midl/logger@3.0.0-next.4':
-    resolution: {integrity: sha512-RUYyUlLz7wE7icBRBsGi4xKWqFtof/CJ3r9luPmpOE/vNZsnEiJDn+RwRF2UEvvAfAzJo6gAzlBA3jQSKYjebg==}
+  '@midl/logger@3.0.0-next.5':
+    resolution: {integrity: sha512-a/UUIoit9fJOdj4WMZXLHiODk1fXEJVXvAAjN9dWkXZgFUVtaOl9eTFNTKvfZiKNl1aPBmI9BiUTOwnig91rcw==}
 
-  '@midl/node@3.0.0-next.4':
-    resolution: {integrity: sha512-K/UqrAhAyIVMDA6uSD/UEpRWGiK+qpPy/qANt4zjOREq1+Zl4xIXOUILEwiXZkPS4daQGMDM930SGQ7Gb/9W/g==}
+  '@midl/node@3.0.0-next.5':
+    resolution: {integrity: sha512-Rk+H/TtpHuBcfk+2aGPtkJUEf6LXp6yJsTVgN0Gh2LxylhBQdOaF6jl48e9gtKWUDVRc5s48Ca7KYGN3YcH96w==}
     peerDependencies:
-      '@midl/core': ^3.0.0-next.4
+      '@midl/core': ^3.0.0-next.5
 
   '@midl/viem@2.21.38':
     resolution: {integrity: sha512-xbe55jR2T3Q4y1wqsRyTyWDSlnc7XnIMyARbT/g5KrxUG5YJKY18vxXirRQLujn6TV2Pz6gUhAkwPumR8QHHxw==}
@@ -4210,10 +4210,10 @@ snapshots:
 
   '@midl/contracts@1.0.7': {}
 
-  '@midl/core@3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
+  '@midl/core@3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
-      '@midl/logger': 3.0.0-next.4
+      '@midl/logger': 3.0.0-next.5
       bitcoinjs-lib: 7.0.0-rc.0(typescript@5.9.3)
       bitcoinselect: 1.0.0
       deepmerge: 4.3.1
@@ -4232,12 +4232,12 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@midl/executor@3.0.0-next.4(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
+  '@midl/executor@3.0.0-next.5(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
       '@midl/contracts': 1.0.7
-      '@midl/core': 3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
-      '@midl/logger': 3.0.0-next.4
+      '@midl/core': 3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/logger': 3.0.0-next.5
       '@midl/viem': 2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13)
       '@noble/secp256k1': 1.7.1
       '@scure/btc-signer': 1.4.0
@@ -4254,12 +4254,12 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@midl/hardhat-deploy@3.0.0-next.4(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
+  '@midl/hardhat-deploy@3.0.0-next.5(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)':
     dependencies:
-      '@midl/core': 3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
-      '@midl/executor': 3.0.0-next.4(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
-      '@midl/logger': 3.0.0-next.4
-      '@midl/node': 3.0.0-next.4(@midl/core@3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)
+      '@midl/core': 3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/executor': 3.0.0-next.5(@midl/viem@2.21.38(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(bitcoinjs-lib@7.0.0-rc.0(typescript@5.9.3))(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/logger': 3.0.0-next.5
+      '@midl/node': 3.0.0-next.5(@midl/core@3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)
       '@nomicfoundation/hardhat-viem': 2.1.3(@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13))(hardhat@2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(typescript@5.9.3)(zod@4.1.13)
       hardhat: 2.27.1(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.19.1)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)
       viem: '@midl-xyz/midl-viem@2.21.37(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.13)'
@@ -4276,14 +4276,14 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@midl/logger@3.0.0-next.4':
+  '@midl/logger@3.0.0-next.5':
     dependencies:
       '@logtape/logtape': 1.2.1
 
-  '@midl/node@3.0.0-next.4(@midl/core@3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)':
+  '@midl/node@3.0.0-next.5(@midl/core@3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13))(typescript@5.9.3)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
-      '@midl/core': 3.0.0-next.4(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
+      '@midl/core': 3.0.0-next.5(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.1.13)
       '@noble/hashes': 1.8.0
       bip32: 5.0.0-rc.0(typescript@5.9.3)
       bip39: 3.1.0

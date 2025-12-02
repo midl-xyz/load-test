@@ -7,7 +7,7 @@ import {
     SystemContracts,
     TransactionIntention,
     Withdrawal,
-} from "@midl-xyz/midl-js-executor";
+} from "@midl/executor";
 import { midlRegtestClient, uniswapFactoryAddress, uniswapRouterAddress, WETH } from "./config";
 import { executorAbi, uniswapV2Router02Abi } from "@/abi";
 import { WalletInfo } from "./utils";

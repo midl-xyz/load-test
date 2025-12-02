@@ -1,11 +1,12 @@
-import { BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider } from "@midl-xyz/midl-js-core";
+import { BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider } from "@midl/core";
 import { Address, Chain, createPublicClient, createWalletClient, http } from "viem";
 import "dotenv/config"
 import path from "node:path";
 
 const getDeploymentAddress = (filename: string, fallback: string): Address => {
     try {
-        const data = require(path.join(__dirname, "..", "deployments", filename, '.json'));
+        const data = require(path.join(__dirname, "..", "deployments", `${filename}.json`));
+        
         if (data && data.address) {
             return data.address as Address;
         }
@@ -32,7 +33,7 @@ if (!maestro) {
     throw new Error("Mestro URL is missing");
 }
 
-export const uniswapRouterAddress = getDeploymentAddress("UniswapV2Router", process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34");
+export const uniswapRouterAddress = getDeploymentAddress("UniswapV2Router02", process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34");
 export const WETH = getDeploymentAddress("WETH9", process.env.WETH as Address ?? "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A");
 export const uniswapFactoryAddress = getDeploymentAddress("UniswapV2Factory", process.env.UNISWAP_FACTORY_ADDRESS as Address ?? "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5");
 
