@@ -1,4 +1,4 @@
-import {getUTXOs} from "@midl-xyz/midl-js-core";
+import {getUTXOs} from "@midl/core";
 
 export const getWalletBTCBalance = async (config: any, address: string): Promise<number> => {
     const utxos = await getUTXOs(config, address);

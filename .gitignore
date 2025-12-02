@@ -16,3 +16,13 @@ yarn-error.log*
 /tests/e2e/.env
 /.env
 /mnemonic.json
+
+# Hardhat files
+cache_hardhat/
+artifacts/
+
+# Hardhat plugin files
+typechain-types/
+deployments/
+cache/
+dist/

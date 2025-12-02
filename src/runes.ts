@@ -1,4 +1,4 @@
-import {broadcastTransaction, etchRune, getRune, waitForTransaction} from "@midl-xyz/midl-js-core";
+import {broadcastTransaction, etchRune, getRune, waitForTransaction} from "@midl/core";
 import {WalletInfo} from "./utils";
 import {getRuneId} from "@/bitcoin";
 
