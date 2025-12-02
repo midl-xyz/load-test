@@ -8,11 +8,11 @@ import {
     edictRune,
     EdictRuneParams,
     waitForTransaction
-} from "@midl-xyz/midl-js-core";
-import {keyPairConnector} from "@midl-xyz/midl-js-node";
+} from "@midl/core";
+import {keyPairConnector} from "@midl/node";
 import {randomSwapValue, WalletInfo} from "@/utils";
 import * as bip39 from 'bip39';
-import {getEVMAddress} from "@midl-xyz/midl-js-executor";
+import {getEVMAddress} from "@midl/executor";
 
 interface StoredMnemonics {
     mnemonics: string[];

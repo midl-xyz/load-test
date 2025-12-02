@@ -6,8 +6,8 @@ import {
     getRuneBalance,
     getUTXOs,
     RuneBalanceResponse
-} from "@midl-xyz/midl-js-core";
-import {keyPairConnector} from "@midl-xyz/midl-js-node";
+} from "@midl/core";
+import {keyPairConnector} from "@midl/node";
 import {
     bitcoinNetwork,
     maestroProvider,
@@ -47,7 +47,7 @@ import {
     satoshisToWei,
     TransactionIntention,
     weiToSatoshis
-} from "@midl-xyz/midl-js-executor";
+} from "@midl/executor";
 import {zeroAddress} from "viem";
 import {setupTestWallets} from "./wallet";
 

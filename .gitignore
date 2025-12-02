@@ -23,3 +23,6 @@ artifacts/
 
 # Hardhat plugin files
 typechain-types/
+deployments/
+cache/
+dist/

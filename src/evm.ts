@@ -1,17 +1,18 @@
-import {Address, encodeFunctionData, zeroAddress} from "viem";
+import { Address, encodeFunctionData, zeroAddress } from "viem";
 import {
     addCompleteTxIntention,
     addTxIntention,
     runeIdToBytes32,
     satoshisToWei,
+    SystemContracts,
     TransactionIntention,
     Withdrawal,
-} from "@midl-xyz/midl-js-executor";
-import {executorAddress, midlRegtestClient, uniswapFactoryAddress, uniswapRouterAddress, WETH} from "./config";
-import {executorAbi, uniswapV2Router02Abi} from "@/abi";
-import {WalletInfo} from "./utils";
-import {abi as IUniswapV2Factory} from '@uniswap/v2-core/build/IUniswapV2Factory.json';
-import {abi as IUniswapV2Pair} from "@uniswap/v2-core/build/IUniswapV2Pair.json";
+} from "@midl/executor";
+import { midlRegtestClient, uniswapFactoryAddress, uniswapRouterAddress, WETH } from "./config";
+import { executorAbi, uniswapV2Router02Abi } from "@/abi";
+import { WalletInfo } from "./utils";
+import { abi as IUniswapV2Factory } from '@uniswap/v2-core/build/IUniswapV2Factory.json';
+import { abi as IUniswapV2Pair } from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 
 
 /**
@@ -24,7 +25,7 @@ export const getAssetAddressByRuneId = async (runeId: string): Promise<string> =
     const bytes32RuneId = runeIdToBytes32(runeId);
     // Call the contract function
     const assetAddress = await midlRegtestClient.readContract({
-        address: executorAddress,
+        address: SystemContracts.Executor,
         abi: executorAbi,
         functionName: 'getAssetAddressByRuneId',
         args: [bytes32RuneId],
@@ -57,10 +58,10 @@ export const approveTokens = async (
                         type: "function",
                         name: "approve",
                         inputs: [
-                            {name: "spender", type: "address"},
-                            {name: "amount", type: "uint256"}
+                            { name: "spender", type: "address" },
+                            { name: "amount", type: "uint256" }
                         ],
-                        outputs: [{name: "", type: "bool"}],
+                        outputs: [{ name: "", type: "bool" }],
                         stateMutability: "nonpayable"
                     }
                 ],
@@ -210,8 +211,8 @@ export const getERC20Balance = async (
             {
                 type: "function",
                 name: "balanceOf",
-                inputs: [{name: "account", type: "address"}],
-                outputs: [{name: "", type: "uint256"}],
+                inputs: [{ name: "account", type: "address" }],
+                outputs: [{ name: "", type: "uint256" }],
                 stateMutability: "view"
             }
         ],
