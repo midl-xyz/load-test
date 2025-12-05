@@ -30,5 +30,5 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "hardhat.config.ts", "deploy"]
+  "exclude": ["node_modules"]
 }
