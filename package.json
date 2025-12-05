@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
-    "@logtape/logtape": "^1.1.0",
     "@midl-xyz/ethers": "6.13.0-4",
     "@midl/core": "3.0.0-next.5",
     "@midl/executor": "3.0.0-next.5",
@@ -36,6 +35,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@logtape/logtape": "^1.1.0",
     "@types/node": "^22.15.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
