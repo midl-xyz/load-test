@@ -10,7 +10,8 @@ import {waitForTransactionReceipt} from "viem/actions";
  */
 export interface WalletInfo {
     config: any;
-    address: string;
+    paymentAccount: Account;
+    ordinalsAccount: Account;
     publicKey: string;
     accounts: Account[];
     evmAddress: `0x${string}`;

@@ -2,6 +2,7 @@ import { Address, encodeFunctionData, zeroAddress } from "viem";
 import {
     addCompleteTxIntention,
     addTxIntention,
+    bytes32toRuneId,
     runeIdToBytes32,
     satoshisToWei,
     SystemContracts,
@@ -13,6 +14,7 @@ import { executorAbi, uniswapV2Router02Abi } from "@/abi";
 import { WalletInfo } from "./utils";
 import { abi as IUniswapV2Factory } from '@uniswap/v2-core/build/IUniswapV2Factory.json';
 import { abi as IUniswapV2Pair } from "@uniswap/v2-core/build/IUniswapV2Pair.json";
+import { getRune } from "@midl/core";
 
 
 /**
@@ -32,6 +34,17 @@ export const getAssetAddressByRuneId = async (runeId: string): Promise<string> =
     });
     return assetAddress as string;
 };
+
+export const getRuneIdByAssetAddress = async (assetAddress: string): Promise<string> => {
+    const runeIdBytes32 = await midlRegtestClient.readContract({
+        address: SystemContracts.Executor,
+        abi: executorAbi,
+        functionName: 'getRuneIdByAssetAddress',
+        args: [assetAddress as `0x${string}`],
+    });
+    
+    return bytes32toRuneId(runeIdBytes32)
+}
 
 /**
  * Approves tokens for spending by target
