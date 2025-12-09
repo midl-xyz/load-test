@@ -34,7 +34,7 @@ export const createRuneForWallet = async (wallet: WalletInfo, name: string, prem
     const revealTxHash = await broadcastTransaction(wallet.config, etching.revealTx);
     console.log("Rune creation transactions:", fundingTxHash, etchingTxHash, revealTxHash);
 
-    await waitForTransaction(wallet.config, revealTxHash, 6, {
+    await waitForTransaction(wallet.config, revealTxHash, 7, {
         intervalMs: 1000
     });
 
