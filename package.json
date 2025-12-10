@@ -4,16 +4,17 @@
   "description": "",
   "scripts": {
     "e2e": "tsx tests/e2e/index.ts",
-    "hardhat": "hardhat --tsconfig tsconfig.hardhat.json"
+    "hardhat": "hardhat --tsconfig tsconfig.hardhat.json deploy"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
     "@midl-xyz/ethers": "6.13.0-4",
-    "@midl/core": "3.0.0-next.9",
-    "@midl/executor": "3.0.0-next.9",
-    "@midl/hardhat-deploy": "3.0.0-next.9",
-    "@midl/node": "3.0.0-next.9",
+    "@midl/core": "3.0.0-next.11",
+    "@midl/executor": "3.0.0-next.11",
+    "@midl/hardhat-deploy": "3.0.0-next.11",
+    "@midl/node": "3.0.0-next.11",
     "@nomicfoundation/hardhat-ethers": "^4.0.3",
+    "@openzeppelin/contracts": "^5.4.0",
     "@typechain/hardhat": "^9.1.0",
     "@uniswap/lib": "4.0.1-alpha",
     "@uniswap/v2-core": "^1.0.1",

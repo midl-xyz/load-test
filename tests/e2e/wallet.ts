@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import {bitcoinNetwork, maestroProvider, mempoolProvider} from '@/config';
+import { bitcoinNetwork, maestroProvider, mempoolProvider } from '@/config';
 import {
     AddressPurpose,
     connect,
@@ -9,10 +9,10 @@ import {
     EdictRuneParams,
     waitForTransaction
 } from "@midl/core";
-import {keyPairConnector} from "@midl/node";
-import {randomSwapValue, WalletInfo} from "@/utils";
+import { keyPairConnector } from "@midl/node";
+import { randomSwapValue, WalletInfo } from "@/utils";
 import * as bip39 from 'bip39';
-import {getEVMAddress} from "@midl/executor";
+import { getEVMAddress } from "@midl/executor";
 
 interface StoredMnemonics {
     mnemonics: string[];
@@ -66,16 +66,12 @@ async function createWalletFromMnemonic(mnemonic: string): Promise<WalletInfo> {
     });
 
     // Connect the config
-    const accounts = await connect(config, {
-        purposes: [AddressPurpose.Ordinals],
+    const [paymentAccount, ordinalsAccount] = await connect(config, {
+        purposes: [AddressPurpose.Payment, AddressPurpose.Ordinals],
         network: bitcoinNetwork
     });
 
-    // Get the address
-    const configState = config.getState();
-    const ordinalsAccount = configState?.accounts?.find(
-        (account) => account.purpose === AddressPurpose.Ordinals,
-    );
+
 
     if (!ordinalsAccount) {
         throw new Error('No ordinals account found for wallet');
@@ -83,13 +79,14 @@ async function createWalletFromMnemonic(mnemonic: string): Promise<WalletInfo> {
 
     const address = ordinalsAccount.address;
     const publicKey = ordinalsAccount.publicKey;
-    const evmAddress = getEVMAddress(accounts[0], bitcoinNetwork);
+    const evmAddress = getEVMAddress(paymentAccount, bitcoinNetwork);
 
     return {
         config,
-        address,
+        paymentAccount,
+        ordinalsAccount,
         publicKey,
-        accounts,
+        accounts: [paymentAccount, ordinalsAccount],
         evmAddress
     };
 }
@@ -123,7 +120,7 @@ export async function createWalletsWithMnemonics(count: number): Promise<WalletI
             wallets.push(wallet);
 
             const isNewWallet = i >= originalMnemonicCount;
-            console.log(`Created wallet ${i + 1}/${count} with address: ${wallet.address} (${isNewWallet ? 'new' : 'existing'})`);
+            console.log(`Created wallet ${i + 1}/${count} with address: ${wallet.paymentAccount.address} (${isNewWallet ? 'new' : 'existing'})`);
         } catch (error) {
             console.error(`Error creating wallet ${i + 1}:`, error);
             throw error;
@@ -139,20 +136,19 @@ export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, d
     const testWallets = await createWalletsWithMnemonics(amountOfTestWallets)
     const potentialFee = 3000 * 3
     const edictRuneParams: EdictRuneParams = {
-        from: baseWallet.address,
         publish: true,
         transfers: []
     }
     for (const [i, testWallet] of testWallets.entries()) {
         edictRuneParams.transfers.push(
             {
-                receiver: testWallet.address,
+                receiver: testWallet.paymentAccount.address,
                 amount: depositValues[i].BTCTokenA + potentialFee
             },
             {
                 runeId: runeId,
                 amount: depositValues[i].TokenABTC + depositValues[i].TokenATokenB,
-                receiver: testWallet.address,
+                receiver: testWallet.ordinalsAccount.address,
             }
         )
     }

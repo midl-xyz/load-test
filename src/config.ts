@@ -1,5 +1,5 @@
 import { BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider } from "@midl/core";
-import { Address, Chain, createPublicClient, createWalletClient, http } from "viem";
+import { Address, Chain, createPublicClient, createWalletClient, http, zeroAddress } from "viem";
 import "dotenv/config"
 import path from "node:path";
 
@@ -12,6 +12,10 @@ const getDeploymentAddress = (filename: string, fallback: string): Address => {
         }
     } catch (e) {
         console.warn(`Could not load deployment address from ${filename}, using fallback ${fallback}`);
+    }
+
+    if(!fallback || fallback === zeroAddress) {
+        throw new Error(`Deployment address for ${filename} is missing and no valid fallback provided`);    
     }
 
     return fallback as Address;
@@ -36,6 +40,8 @@ if (!maestro) {
 export const uniswapRouterAddress = getDeploymentAddress("UniswapV2Router02", process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34");
 export const WETH = getDeploymentAddress("WETH9", process.env.WETH as Address ?? "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A");
 export const uniswapFactoryAddress = getDeploymentAddress("UniswapV2Factory", process.env.UNISWAP_FACTORY_ADDRESS as Address ?? "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5");
+export const goldERC20Address = getDeploymentAddress("GoldERC20", process.env.GOLD_ERC20_ADDRESS as Address);
+
 
 export const bitcoinNetwork: BitcoinNetwork = {
     id: "regtest",
