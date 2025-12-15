@@ -1,5 +1,5 @@
 import {Account} from "@midl/core";
-import {midlRegtestWalletClient, WETH} from "./config";
+import {goldERC20Address, midlRegtestWalletClient, WETH} from "./config";
 import {getAssetAddressByRuneId, Reserve} from "@/evm";
 import {zeroAddress} from "viem";
 import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl/executor";
@@ -87,9 +87,11 @@ export interface randomSwapValue {
     BTCTokenA: number,
     TokenABTC: bigint,
     TokenATokenB: bigint
+    BTCSynthetic: number,
+    SyntheticBTC: bigint,
 }
 
-export async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToTokenReserves: Reserve, tokenAAddress: string): Promise<randomSwapValue[]> {
+export async function getRandomSwapValues(reserves: Reserve[], tokenAAddress: string): Promise<randomSwapValue[]> {
     const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
     const res: randomSwapValue[] = []
     const getRandomBigInt = (max: bigint, percentage: number = 0.01): bigint => {
@@ -100,18 +102,25 @@ export async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToToke
             return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
         }
     }
-    const [BTCReserves, TokenAFromBTCPool] = BTCTokenReserves.tokenAAddress === WETH
-        ? [BTCTokenReserves.tokenA, BTCTokenReserves.tokenB]
-        : [BTCTokenReserves.tokenB, BTCTokenReserves.tokenA]
+    const [BTCReserves, TokenAFromBTCPool] = reserves[0].tokenAAddress === WETH
+        ? [reserves[0].tokenA, reserves[0].tokenB]
+        : [reserves[0].tokenB, reserves[0].tokenA]
 
-    const TokenAFromTokenPool = TokenToTokenReserves.tokenAAddress === tokenAAddress
-        ? TokenToTokenReserves.tokenA
-        : TokenToTokenReserves.tokenB
+    const TokenAFromTokenPool = reserves[1].tokenAAddress === tokenAAddress
+        ? reserves[1].tokenA
+        : reserves[1].tokenB
+
+    const [BTCSyntheticReserves, SyntheticReserves] = reserves[2].tokenAAddress === goldERC20Address
+        ? [reserves[2].tokenA, reserves[2].tokenB]
+        : [reserves[2].tokenB, reserves[2].tokenA]
+
     for (let i = 0; i < amountOfTestWallets; i++) {
         res.push({
             BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
             TokenABTC: getRandomBigInt(TokenAFromBTCPool),
             TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
+            BTCSynthetic: weiToSatoshis(getRandomBigInt(BTCSyntheticReserves)),
+            SyntheticBTC: getRandomBigInt(SyntheticReserves)
         })
     }
     return res

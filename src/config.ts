@@ -1,12 +1,12 @@
-import { BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider } from "@midl/core";
-import { Address, Chain, createPublicClient, createWalletClient, http, zeroAddress } from "viem";
+import {BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider} from "@midl/core";
+import {Address, Chain, createPublicClient, createWalletClient, http, zeroAddress} from "viem";
 import "dotenv/config"
 import path from "node:path";
 
 const getDeploymentAddress = (filename: string, fallback: string): Address => {
     try {
         const data = require(path.join(__dirname, "..", "deployments", `${filename}.json`));
-        
+
         if (data && data.address) {
             return data.address as Address;
         }
@@ -14,8 +14,8 @@ const getDeploymentAddress = (filename: string, fallback: string): Address => {
         console.warn(`Could not load deployment address from ${filename}, using fallback ${fallback}`);
     }
 
-    if(!fallback || fallback === zeroAddress) {
-        throw new Error(`Deployment address for ${filename} is missing and no valid fallback provided`);    
+    if (!fallback || fallback === zeroAddress) {
+        throw new Error(`Deployment address for ${filename} is missing and no valid fallback provided`);
     }
 
     return fallback as Address;
@@ -41,6 +41,7 @@ export const uniswapRouterAddress = getDeploymentAddress("UniswapV2Router02", pr
 export const WETH = getDeploymentAddress("WETH9", process.env.WETH as Address ?? "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A");
 export const uniswapFactoryAddress = getDeploymentAddress("UniswapV2Factory", process.env.UNISWAP_FACTORY_ADDRESS as Address ?? "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5");
 export const goldERC20Address = getDeploymentAddress("GoldERC20", process.env.GOLD_ERC20_ADDRESS as Address);
+export const executorAddress = getDeploymentAddress("Executor", process.env.EXECUTOR_ADDRESS as Address);
 
 
 export const bitcoinNetwork: BitcoinNetwork = {
