@@ -1,9 +1,19 @@
-import {Account} from "@midl/core";
-import {goldERC20Address, midlRegtestWalletClient, WETH} from "./config";
-import {getAssetAddressByRuneId, Reserve} from "@/evm";
-import {zeroAddress} from "viem";
-import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl/executor";
-import {waitForTransactionReceipt} from "viem/actions";
+import {Account, waitForTransaction} from "@midl/core";
+import {executorAddress, goldERC20Address, midlRegtestClient, midlRegtestWalletClient, WETH} from "./config";
+import {approveTokens, getAssetAddressByRuneId, getRuneIdByAssetAddress, Reserve} from "@/evm";
+import {erc20Abi, zeroAddress} from "viem";
+import {
+    addCompleteTxIntention,
+    addRequestAddAssetIntention,
+    finalizeBTCTransaction,
+    signIntention,
+    SystemContracts,
+    TransactionIntention,
+    weiToSatoshis
+} from "@midl/executor";
+import {getCode, waitForTransactionReceipt} from "viem/actions";
+import {createRuneForWallet} from "@/runes";
+import assert from "node:assert";
 
 /**
  * Interface for wallet information
@@ -110,7 +120,7 @@ export async function getRandomSwapValues(reserves: Reserve[], tokenAAddress: st
         ? reserves[1].tokenA
         : reserves[1].tokenB
 
-    const [BTCSyntheticReserves, SyntheticReserves] = reserves[2].tokenAAddress === goldERC20Address
+    const [BTCSyntheticReserves, SyntheticReserves] = reserves[2].tokenAAddress === WETH
         ? [reserves[2].tokenA, reserves[2].tokenB]
         : [reserves[2].tokenB, reserves[2].tokenA]
 
@@ -124,4 +134,74 @@ export async function getRandomSwapValues(reserves: Reserve[], tokenAAddress: st
         })
     }
     return res
+}
+
+export async function checkSystemContracts() {
+    const systemContracts = [
+        SystemContracts.ValidatorRegistry,
+        SystemContracts.Staking,
+        SystemContracts.MidlToken,
+        SystemContracts.Executor,
+        SystemContracts.SynthReservoir,
+        SystemContracts.GlobalParams,
+        SystemContracts.FeesDistributor,
+        SystemContracts.RuneImplementation,
+        SystemContracts.Treasury,
+        SystemContracts.Multicall3,
+    ]
+    for (const systemContract of systemContracts) {
+        const v = await getCode(midlRegtestClient, {address: systemContract})
+        assert(v !== undefined, `System contract is undefined: ${systemContract}`)
+    }
+}
+
+export async function createSyntheticAsset(baseWallet: WalletInfo) {
+    console.log("Test ERC20 Synthetic Rune mapping");
+
+    let runeId = await getRuneIdByAssetAddress(goldERC20Address);
+    if (runeId === '0:0') {
+        const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
+        const amount = BigInt(100_000_000_000) * (10n ** 18n);
+
+        runeId = await createRuneForWallet(baseWallet, runeName, String(amount) as unknown as number)
+        const intention = await addRequestAddAssetIntention(baseWallet.config, {
+            runeId: runeId,
+            address: goldERC20Address,
+            amount,
+        })
+
+        let btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [intention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+        assert(await getAssetAddressByRuneId(runeId) === goldERC20Address, "Synthetic rune mapping failed");
+        console.log(`Synthetic runeId successfully created with runeId: ${runeId} at address: ${goldERC20Address}`);
+        const completeTxAmount = amount / 10000n
+        console.log(`Sending MIDL pack with completeTx to fill the reservoir with amount: ${completeTxAmount}`)
+        const approveIntention = await approveTokens(goldERC20Address, executorAddress, completeTxAmount, baseWallet)
+        const completeTxIntention = await addCompleteTxIntention(baseWallet.config, {
+            runes: [
+                {
+                    id: runeId,
+                    address: goldERC20Address,
+                    amount: completeTxAmount,
+                }
+            ]
+        })
+        btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [approveIntention, completeTxIntention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+    } else {
+        console.log(`Synthetic rune mapping already exists for rune ID ${runeId} at address ${goldERC20Address}`);
+    }
+
+    const synthAddress = await getAssetAddressByRuneId(runeId)
+    assert(synthAddress === goldERC20Address, "Synthetic rune mapping failed");
+
+    const balance = await midlRegtestClient.readContract({
+        address: synthAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [SystemContracts.SynthReservoir]
+    })
+    assert(balance !== 0n, "Balance of SynthReservoir should not be zero");
+
+    return runeId
 }
