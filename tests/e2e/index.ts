@@ -1,6 +1,7 @@
 import {txIsUsed} from "@/bitcoin";
 import {
     bitcoinNetwork,
+    executorAddress,
     goldERC20Address,
     maestroProvider,
     mempoolProvider,
@@ -18,14 +19,14 @@ import {
     getERC20Balance,
     getPair,
     getReserves,
-    getRuneIdByAssetAddress,
     swapBTCForTokens,
     swapTokenAForTokenB,
-    swapTokensForBTC,
-    transferRuneToMIDL
+    swapTokensForBTC
 } from "@/evm";
 import {createRuneForWallet} from "@/runes";
 import {
+    checkSystemContracts,
+    createSyntheticAsset,
     executeBTCTransactionWithIntentions,
     generateRandomString,
     getRandomSwapValues,
@@ -40,34 +41,32 @@ import {
     getBalance,
     getRuneBalance,
     getUTXOs,
-    RuneBalanceResponse,
-    waitForTransaction
+    RuneBalanceResponse
 } from "@midl/core";
 import {
-    addRequestAddAssetIntention,
+    addRuneERC20Intention,
     getEVMAddress,
     RUNES_MAGIC_VALUE,
     satoshisToWei,
     TransactionIntention,
-    weiToSatoshis
+    weiToSatoshis,
 } from "@midl/executor";
 import {keyPairConnector} from "@midl/node";
 import {zeroAddress} from "viem";
 import {setupTestWallets} from "./wallet";
-import assert from "node:assert";
-import {configure, getConsoleSink} from "@logtape/logtape";
 
 export async function runE2ETests() {
-    await configure({
-        sinks: {console: getConsoleSink()},
-        loggers: [
-            {category: ["logtape", "meta"], sinks: []},
-            {category: "@midl/core", lowestLevel: "trace", sinks: ["console"]},
-            {category: "@midl/executor", lowestLevel: "trace", sinks: ["console"]}
-        ]
-    });
+    // await configure({
+    //     sinks: {console: getConsoleSink()},
+    //     loggers: [
+    //         {category: ["logtape", "meta"], sinks: []},
+    //         {category: "@midl/core", lowestLevel: "trace", sinks: ["console"]},
+    //         {category: "@midl/executor", lowestLevel: "trace", sinks: ["console"]}
+    //     ]
+    // });
 
     console.log('Running E2E Tests');
+    await checkSystemContracts();
 
     const mnemonic = process.env.MNEMONIC;
     if (!mnemonic) {
@@ -113,34 +112,13 @@ export async function runE2ETests() {
     const walletBalance = await getBalance(connectionConfig, paymentAccount.address)
     console.log(`Base wallet balance is ${walletBalance} satoshis`);
 
-    if (walletBalance < 1e8) {
-        throw new Error("Base wallet balance is lower than 1 BTC");
+    if (walletBalance < 3e8) {
+        throw new Error("Base wallet balance is lower than 3 BTC");
     }
 
-
-    console.log("Test ERC20 Synthetic Rune mapping");
-
-    const existingMapping = await getRuneIdByAssetAddress(goldERC20Address);
-
-    if (existingMapping === '0:0') {
-        const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
-        const amount = BigInt(100_000_000_000) * (10n ** 18n);
-
-        const runeId = await createRuneForWallet(baseWallet, runeName, String(amount) as unknown as number)
-        const intention = await addRequestAddAssetIntention(baseWallet.config, {
-            runeId: runeId,
-            address: goldERC20Address,
-            amount,
-        })
-
-        const {btcTxId} = await executeBTCTransactionWithIntentions(baseWallet, [intention])
-        await waitForTransaction(baseWallet.config, btcTxId, 1);
-        assert(await getAssetAddressByRuneId(runeId) === goldERC20Address, "Synthetic rune mapping failed");
-    } else {
-        console.log(`Synthetic rune mapping already exists for rune ID ${existingMapping} at address ${goldERC20Address}`);
-    }
 
     console.log("Check runes and tokens")
+    const runeSyntheticId = await createSyntheticAsset(baseWallet)
     const assetA = await getAsset(baseWallet, process.env.RUNE_A_ID, process.env.TOKEN_A_ERC20);
     const tokenA = assetA.tokenAddress
     const runeAId = assetA.runeId
@@ -162,8 +140,8 @@ export async function runE2ETests() {
         pairAddress = await getPair(tokenA, WETH)
         console.log("TokenA -> BTC pool is created with address: ", pairAddress);
     }
-    const reserves = await getReserves(pairAddress)
-    console.log("Reserves for tokenA -> BTC", reserves)
+    const tokenToBTCReserves = await getReserves(pairAddress)
+    console.log("Reserves for tokenA -> BTC", tokenToBTCReserves)
 
     console.log("Check liquidity tokenA -> tokenB")
     let tokenToTokenPair = await getPair(tokenA, tokenB)
@@ -183,15 +161,36 @@ export async function runE2ETests() {
     const tokenToTokenReserves = await getReserves(tokenToTokenPair)
     console.log("Reserves for tokenA -> tokenB", tokenToTokenReserves)
 
-    const randomValues = await getRandomSwapValues(reserves, tokenToTokenReserves, tokenA)
+    console.log("Check liquidity syntheticAsset -> BTC")
+    let syntheticPair = await getPair(goldERC20Address, WETH)
+    if (!syntheticPair || syntheticPair === zeroAddress) {
+        console.log("Pool is not created, try to create pool syntheticAsset -> BTC");
+        await createBTCPool(baseWallet, {
+            tokenAddress: goldERC20Address,
+            satoshiAmount: 1e8,
+            tokensAmount: 240_000n,
+            runeId: runeSyntheticId,
+        })
+        syntheticPair = await getPair(goldERC20Address, WETH)
+        console.log("SyntheticAsset -> BTC pool is created with address: ", syntheticPair);
+    }
+    const syntheticToBTCReserves = await getReserves(syntheticPair)
+    console.log("Reserves for SyntheticAsset -> BTC", syntheticToBTCReserves)
+
+    const randomValues = await getRandomSwapValues([tokenToBTCReserves, tokenToTokenReserves, syntheticToBTCReserves], tokenA)
     console.log("Random swap values", randomValues)
 
     console.log("Setup test wallets")
-    const testWallets = await setupTestWallets(baseWallet, runeAId, randomValues)
+    const testWallets = await setupTestWallets(baseWallet, runeAId, runeSyntheticId, randomValues)
 
     console.log("Create swap BTC -> tokenA")
     for (const [i, testWallet] of testWallets.entries()) {
-        await swapBTCToTokens(testWallet, {tokenAddress: tokenA, btcAmount: randomValues[i].BTCTokenA, runeId: runeAId})
+        await swapBTCToTokens(testWallet, {
+            tokenAddress: tokenA,
+            btcAmount: randomValues[i].BTCTokenA,
+            runeId: runeAId,
+            isSynthetic: false,
+        })
     }
 
     console.log("Create swap tokenA -> BTC")
@@ -199,7 +198,8 @@ export async function runE2ETests() {
         await swapTokensToBTC(testWallet, {
             tokenAddress: tokenA,
             tokensAmount: randomValues[i].TokenABTC,
-            runeId: runeAId
+            runeId: runeAId,
+            isSynthetic: false
         })
     }
 
@@ -211,6 +211,26 @@ export async function runE2ETests() {
             tokenAAmount: randomValues[i].TokenATokenB,
             runeAId: runeAId,
             runeBId: runeBId,
+        })
+    }
+
+    console.log("Create swap BTC -> syntheticAsset")
+    for (const [i, testWallet] of testWallets.entries()) {
+        await swapBTCToTokens(testWallet, {
+            tokenAddress: goldERC20Address,
+            btcAmount: randomValues[i].BTCSynthetic,
+            runeId: runeSyntheticId,
+            isSynthetic: true,
+        })
+    }
+
+    console.log("Create swap syntheticAsset -> BTC")
+    for (const [i, testWallet] of testWallets.entries()) {
+        await swapTokensToBTC(testWallet, {
+            tokenAddress: goldERC20Address,
+            tokensAmount: randomValues[i].SyntheticBTC,
+            runeId: runeSyntheticId,
+            isSynthetic: true
         })
     }
 }
@@ -233,7 +253,7 @@ async function getAsset(wallet: WalletInfo, runeId?: string, tokenAddress?: stri
 
     if (!tokenAddress) {
         console.log(`Token address is undefined, create intention to add rune to MIDL`);
-        const intentions: TransactionIntention[] = [await transferRuneToMIDL(wallet, 1n, runeId, `0x`)]
+        const intentions: TransactionIntention[] = [await addRuneERC20Intention(wallet.config, runeId)]
         await executeBTCTransactionWithIntentions(wallet, intentions, true)
         tokenAddress = await waitRuneAddress(runeId)
         console.log(`Successful add rune to MIDL, new address for runeId ${runeId} is ${tokenAddress}`);
@@ -254,23 +274,18 @@ async function createBTCPool(wallet: WalletInfo, poolDescription: {
     tokensAmount: bigint,
     runeId: string,
 }): Promise<void> {
-    const satoshiAmount = process.env.BTC_POOL_SATOSHI_AMOUNT
-        ? Number(process.env.BTC_POOL_SATOSHI_AMOUNT)
-        : poolDescription.satoshiAmount;
-
-    let tokensAAmount = process.env.BTC_POOL_TOKENS_AMOUNT
-        ? BigInt(process.env.BTC_POOL_TOKENS_AMOUNT)
-        : poolDescription.tokensAmount;
+    const satoshiAmount = poolDescription.satoshiAmount
+    let tokensAAmount = poolDescription.tokensAmount
     tokensAAmount = tokensAAmount * (10n ** 18n);
 
-    const approvalTxHash = await approveTokens(
+    const approvalTxIntention = await approveTokens(
         poolDescription.tokenAddress,
         uniswapRouterAddress,
         tokensAAmount,
         wallet,
     );
 
-    const addLiquidityTxHash = await addLiquidity(
+    const addLiquidityTxIntention = await addLiquidity(
         poolDescription.tokenAddress,
         tokensAAmount,
         satoshiAmount,
@@ -278,7 +293,7 @@ async function createBTCPool(wallet: WalletInfo, poolDescription: {
         poolDescription.runeId,
     );
 
-    const intentions = [approvalTxHash, addLiquidityTxHash];
+    const intentions = [approvalTxIntention, addLiquidityTxIntention];
     await executeBTCTransactionWithIntentions(wallet, intentions)
 }
 
@@ -328,7 +343,8 @@ async function createTokensPool(wallet: WalletInfo, poolDescription: {
 async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
     btcAmount: number,
     tokenAddress: string,
-    runeId: string
+    runeId: string,
+    isSynthetic: boolean,
 }): Promise<string> {
     const tokensBeforeSwap = await getERC20Balance(swapBTCOptions.tokenAddress, wallet.evmAddress)
     const predictedTokens = await calculateTokensOut([WETH, swapBTCOptions.tokenAddress as `0x${string}`], satoshisToWei(swapBTCOptions.btcAmount))
@@ -340,7 +356,11 @@ async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
     console.log("Runes balance before swap: ", runesBeforeSwap)
     console.log("Predicted result of swap: ", predictedTokens)
 
-    const intentions: TransactionIntention[] = [
+    const intentions: TransactionIntention[] = []
+    if (swapBTCOptions.isSynthetic) {
+        intentions.push(await approveTokens(swapBTCOptions.tokenAddress, executorAddress, predictedTokens, wallet))
+    }
+    intentions.push(
         await swapBTCForTokens(wallet, swapBTCOptions.tokenAddress, swapBTCOptions.btcAmount),
         await completeTx(wallet, {
             runes: [
@@ -350,8 +370,8 @@ async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
                     address: swapBTCOptions.tokenAddress as `0x${string}`
                 }
             ]
-        })
-    ];
+        }))
+
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
     const btcResultTxHash = await txIsUsed(res.btcTxId)
     console.log("btcResultTxHash", btcResultTxHash)
@@ -374,7 +394,8 @@ async function swapBTCToTokens(wallet: WalletInfo, swapBTCOptions: {
 async function swapTokensToBTC(wallet: WalletInfo, swapTokensOptions: {
     tokensAmount: bigint,
     tokenAddress: string,
-    runeId: string
+    runeId: string,
+    isSynthetic: boolean
 }): Promise<string> {
     const beforeEvmBalance = await midlRegtestClient.getBalance({address: wallet.evmAddress})
     const beforeBTCBalance = await getBalance(wallet.config, wallet.paymentAccount.address)
@@ -383,11 +404,15 @@ async function swapTokensToBTC(wallet: WalletInfo, swapTokensOptions: {
     console.log(`Before btc balance: ${beforeBTCBalance}`);
     console.log(`Predicate result of swap: ${weiToSatoshis(predictedTokens)} sat`);
 
-    const intentions: TransactionIntention[] = [
+    const intentions: TransactionIntention[] = []
+    if (swapTokensOptions.isSynthetic) {
+        intentions.push(await approveTokens(swapTokensOptions.tokenAddress, executorAddress, swapTokensOptions.tokensAmount, wallet))
+    }
+    intentions.push(
         await approveTokens(swapTokensOptions.tokenAddress, uniswapRouterAddress, swapTokensOptions.tokensAmount, wallet),
         await swapTokensForBTC(wallet, swapTokensOptions.tokenAddress, swapTokensOptions.tokensAmount, swapTokensOptions.runeId),
         await completeTx(wallet)
-    ];
+    )
     const res = await executeBTCTransactionWithIntentions(wallet, intentions)
     const btcResultTxId = await txIsUsed(res.btcTxId)
     console.log("btcResultTxId", btcResultTxId)
@@ -479,7 +504,6 @@ async function swapTokensToTokens(wallet: WalletInfo, swapTokensOptions: {
     }
     return res.btcTxId
 }
-
 
 runE2ETests().then(() => {
     console.log('Tests complete');

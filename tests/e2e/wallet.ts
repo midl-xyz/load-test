@@ -1,18 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { bitcoinNetwork, maestroProvider, mempoolProvider } from '@/config';
-import {
-    AddressPurpose,
-    connect,
-    createConfig,
-    edictRune,
-    EdictRuneParams,
-    waitForTransaction
-} from "@midl/core";
-import { keyPairConnector } from "@midl/node";
-import { randomSwapValue, WalletInfo } from "@/utils";
+import {bitcoinNetwork, maestroProvider, mempoolProvider} from '@/config';
+import {AddressPurpose, connect, createConfig, edictRune, EdictRuneParams, waitForTransaction} from "@midl/core";
+import {keyPairConnector} from "@midl/node";
+import {randomSwapValue, WalletInfo} from "@/utils";
 import * as bip39 from 'bip39';
-import { getEVMAddress } from "@midl/executor";
+import {getEVMAddress} from "@midl/executor";
 
 interface StoredMnemonics {
     mnemonics: string[];
@@ -70,7 +63,6 @@ async function createWalletFromMnemonic(mnemonic: string): Promise<WalletInfo> {
         purposes: [AddressPurpose.Payment, AddressPurpose.Ordinals],
         network: bitcoinNetwork
     });
-
 
 
     if (!ordinalsAccount) {
@@ -131,7 +123,7 @@ export async function createWalletsWithMnemonics(count: number): Promise<WalletI
     return wallets;
 }
 
-export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, depositValues: randomSwapValue[]): Promise<WalletInfo[]> {
+export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, syntheticRuneId: string, depositValues: randomSwapValue[]): Promise<WalletInfo[]> {
     const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
     const testWallets = await createWalletsWithMnemonics(amountOfTestWallets)
     const potentialFee = 3000 * 3
@@ -143,11 +135,16 @@ export async function setupTestWallets(baseWallet: WalletInfo, runeId: string, d
         edictRuneParams.transfers.push(
             {
                 receiver: testWallet.paymentAccount.address,
-                amount: depositValues[i].BTCTokenA + potentialFee
+                amount: depositValues[i].BTCTokenA + depositValues[i].BTCSynthetic + potentialFee
             },
             {
                 runeId: runeId,
                 amount: depositValues[i].TokenABTC + depositValues[i].TokenATokenB,
+                receiver: testWallet.ordinalsAccount.address,
+            },
+            {
+                runeId: syntheticRuneId,
+                amount: depositValues[i].SyntheticBTC,
                 receiver: testWallet.ordinalsAccount.address,
             }
         )

@@ -1,9 +1,19 @@
-import {Account} from "@midl/core";
-import {midlRegtestWalletClient, WETH} from "./config";
-import {getAssetAddressByRuneId, Reserve} from "@/evm";
-import {zeroAddress} from "viem";
-import {finalizeBTCTransaction, signIntention, TransactionIntention, weiToSatoshis} from "@midl/executor";
-import {waitForTransactionReceipt} from "viem/actions";
+import {Account, waitForTransaction} from "@midl/core";
+import {executorAddress, goldERC20Address, midlRegtestClient, midlRegtestWalletClient, WETH} from "./config";
+import {approveTokens, getAssetAddressByRuneId, getRuneIdByAssetAddress, Reserve} from "@/evm";
+import {erc20Abi, zeroAddress} from "viem";
+import {
+    addCompleteTxIntention,
+    addRequestAddAssetIntention,
+    finalizeBTCTransaction,
+    signIntention,
+    SystemContracts,
+    TransactionIntention,
+    weiToSatoshis
+} from "@midl/executor";
+import {getCode, waitForTransactionReceipt} from "viem/actions";
+import {createRuneForWallet} from "@/runes";
+import assert from "node:assert";
 
 /**
  * Interface for wallet information
@@ -87,9 +97,11 @@ export interface randomSwapValue {
     BTCTokenA: number,
     TokenABTC: bigint,
     TokenATokenB: bigint
+    BTCSynthetic: number,
+    SyntheticBTC: bigint,
 }
 
-export async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToTokenReserves: Reserve, tokenAAddress: string): Promise<randomSwapValue[]> {
+export async function getRandomSwapValues(reserves: Reserve[], tokenAAddress: string): Promise<randomSwapValue[]> {
     const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
     const res: randomSwapValue[] = []
     const getRandomBigInt = (max: bigint, percentage: number = 0.01): bigint => {
@@ -100,19 +112,96 @@ export async function getRandomSwapValues(BTCTokenReserves: Reserve, TokenToToke
             return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
         }
     }
-    const [BTCReserves, TokenAFromBTCPool] = BTCTokenReserves.tokenAAddress === WETH
-        ? [BTCTokenReserves.tokenA, BTCTokenReserves.tokenB]
-        : [BTCTokenReserves.tokenB, BTCTokenReserves.tokenA]
+    const [BTCReserves, TokenAFromBTCPool] = reserves[0].tokenAAddress === WETH
+        ? [reserves[0].tokenA, reserves[0].tokenB]
+        : [reserves[0].tokenB, reserves[0].tokenA]
 
-    const TokenAFromTokenPool = TokenToTokenReserves.tokenAAddress === tokenAAddress
-        ? TokenToTokenReserves.tokenA
-        : TokenToTokenReserves.tokenB
+    const TokenAFromTokenPool = reserves[1].tokenAAddress === tokenAAddress
+        ? reserves[1].tokenA
+        : reserves[1].tokenB
+
+    const [BTCSyntheticReserves, SyntheticReserves] = reserves[2].tokenAAddress === WETH
+        ? [reserves[2].tokenA, reserves[2].tokenB]
+        : [reserves[2].tokenB, reserves[2].tokenA]
+
     for (let i = 0; i < amountOfTestWallets; i++) {
         res.push({
             BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
             TokenABTC: getRandomBigInt(TokenAFromBTCPool),
             TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
+            BTCSynthetic: weiToSatoshis(getRandomBigInt(BTCSyntheticReserves)),
+            SyntheticBTC: getRandomBigInt(SyntheticReserves)
         })
     }
     return res
+}
+
+export async function checkSystemContracts() {
+    const systemContracts = [
+        SystemContracts.ValidatorRegistry,
+        SystemContracts.Staking,
+        SystemContracts.MidlToken,
+        SystemContracts.Executor,
+        SystemContracts.SynthReservoir,
+        SystemContracts.GlobalParams,
+        SystemContracts.FeesDistributor,
+        SystemContracts.RuneImplementation,
+        SystemContracts.Treasury,
+        SystemContracts.Multicall3,
+    ]
+    for (const systemContract of systemContracts) {
+        const v = await getCode(midlRegtestClient, {address: systemContract})
+        assert(v !== undefined, `System contract is undefined: ${systemContract}`)
+    }
+}
+
+export async function createSyntheticAsset(baseWallet: WalletInfo) {
+    console.log("Test ERC20 Synthetic Rune mapping");
+
+    let runeId = await getRuneIdByAssetAddress(goldERC20Address);
+    if (runeId === '0:0') {
+        const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
+        const amount = BigInt(100_000_000_000) * (10n ** 18n);
+
+        runeId = await createRuneForWallet(baseWallet, runeName, String(amount) as unknown as number)
+        const intention = await addRequestAddAssetIntention(baseWallet.config, {
+            runeId: runeId,
+            address: goldERC20Address,
+            amount,
+        })
+
+        let btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [intention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+        assert(await getAssetAddressByRuneId(runeId) === goldERC20Address, "Synthetic rune mapping failed");
+        console.log(`Synthetic runeId successfully created with runeId: ${runeId} at address: ${goldERC20Address}`);
+        const completeTxAmount = amount / 10000n
+        console.log(`Sending MIDL pack with completeTx to fill the reservoir with amount: ${completeTxAmount}`)
+        const approveIntention = await approveTokens(goldERC20Address, executorAddress, completeTxAmount, baseWallet)
+        const completeTxIntention = await addCompleteTxIntention(baseWallet.config, {
+            runes: [
+                {
+                    id: runeId,
+                    address: goldERC20Address,
+                    amount: completeTxAmount,
+                }
+            ]
+        })
+        btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [approveIntention, completeTxIntention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+    } else {
+        console.log(`Synthetic rune mapping already exists for rune ID ${runeId} at address ${goldERC20Address}`);
+    }
+
+    const synthAddress = await getAssetAddressByRuneId(runeId)
+    assert(synthAddress === goldERC20Address, "Synthetic rune mapping failed");
+
+    const balance = await midlRegtestClient.readContract({
+        address: synthAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [SystemContracts.SynthReservoir]
+    })
+    assert(balance !== 0n, "Balance of SynthReservoir should not be zero");
+
+    return runeId
 }
