@@ -1,16 +1,19 @@
-import {Address, encodeFunctionData} from "viem";
+import {Address, encodeFunctionData, maxUint128, zeroAddress} from "viem";
 import {
     addCompleteTxIntention,
     addTxIntention,
-    convertBTCtoETH,
-    getEVMAddress,
+    bytes32toRuneId,
     runeIdToBytes32,
-    TransactionIntention
-} from "@midl-xyz/midl-js-executor";
-import {midlRegtestClient, uniswapRouterAddress, WETH} from "./config";
+    satoshisToWei,
+    SystemContracts,
+    TransactionIntention,
+    Withdrawal,
+} from "@midl/executor";
+import {midlRegtestClient, uniswapFactoryAddress, uniswapRouterAddress, WETH} from "./config";
 import {executorAbi, uniswapV2Router02Abi} from "@/abi";
 import {WalletInfo} from "./utils";
-import {getDefaultAccount} from "@midl-xyz/midl-js-core";
+import {abi as IUniswapV2Factory} from '@uniswap/v2-core/build/IUniswapV2Factory.json';
+import {abi as IUniswapV2Pair} from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 
 
 /**
@@ -21,20 +24,26 @@ import {getDefaultAccount} from "@midl-xyz/midl-js-core";
 export const getAssetAddressByRuneId = async (runeId: string): Promise<string> => {
     // Convert the rune ID to bytes32 format
     const bytes32RuneId = runeIdToBytes32(runeId);
-
-    // Contract address
-    const contractAddress = '0xEbF0Ece9A6cbDfd334Ce71f09fF450cd06D57753';
-
     // Call the contract function
     const assetAddress = await midlRegtestClient.readContract({
-        address: contractAddress,
+        address: SystemContracts.Executor,
         abi: executorAbi,
         functionName: 'getAssetAddressByRuneId',
         args: [bytes32RuneId],
     });
-
     return assetAddress as string;
 };
+
+export const getRuneIdByAssetAddress = async (assetAddress: string): Promise<string> => {
+    const runeIdBytes32 = await midlRegtestClient.readContract({
+        address: SystemContracts.Executor,
+        abi: executorAbi,
+        functionName: 'getRuneIdByAssetAddress',
+        args: [assetAddress as `0x${string}`],
+    });
+
+    return bytes32toRuneId(runeIdBytes32)
+}
 
 /**
  * Approves tokens for spending by target
@@ -75,16 +84,6 @@ export const approveTokens = async (
     })
 };
 
-/**
- * Adds liquidity to Uniswap
- * @param assetAddress - The address of the token
- * @param runeAmount - The amount of tokens to add
- * @param bitcoinAmount - The amount of Bitcoin to add
- * @param btcTxHash - The Bitcoin transaction hash
- * @param publicKey - The public key
- * @param wallet - The wallet information
- * @returns Promise<string> - The transaction hash
- */
 export const addLiquidity = async (
     assetAddress: string,
     runeAmount: bigint,
@@ -92,23 +91,10 @@ export const addLiquidity = async (
     wallet: WalletInfo,
     runeId: string,
 ): Promise<TransactionIntention> => {
-
-    const evmAddress = getEVMAddress(wallet.config, getDefaultAccount(wallet.config));
-
     return addTxIntention(wallet.config, {
-        hasRunesDeposit: true,
-        runes: [
-            {
-                id: runeId,
-                value: runeAmount,
-                address: assetAddress as Address
-            }
-        ],
-        satoshis: bitcoinAmount,
         evmTransaction: {
             to: uniswapRouterAddress,
-            value: convertBTCtoETH(bitcoinAmount),
-
+            value: satoshisToWei(bitcoinAmount),
             data: encodeFunctionData({
                 abi: uniswapV2Router02Abi,
                 functionName: "addLiquidityETH",
@@ -117,7 +103,49 @@ export const addLiquidity = async (
                     runeAmount,
                     0n,
                     0n,
-                    evmAddress,
+                    wallet.evmAddress,
+                    maxUint128
+                ],
+            })
+        },
+        deposit: {
+            satoshis: bitcoinAmount,
+            runes: [
+                {
+                    id: runeId,
+                    amount: runeAmount,
+                    address: assetAddress as `0x${string}`,
+                }
+            ]
+        }
+    });
+};
+
+
+export const addLiquidityTokenToToken = async (
+    tokenA: Address,
+    tokenB: Address,
+    amountA: bigint,
+    amountB: bigint,
+    wallet: WalletInfo,
+    runeIdA: string,
+    runeIdB: string,
+): Promise<TransactionIntention> => {
+    return addTxIntention(wallet.config, {
+        evmTransaction: {
+            to: uniswapRouterAddress,
+            value: 0n, // Не отправляем ETH для токен-токен пула
+            data: encodeFunctionData({
+                abi: uniswapV2Router02Abi,
+                functionName: "addLiquidity",
+                args: [
+                    tokenA,
+                    tokenB,
+                    amountA,
+                    amountB,
+                    0n,
+                    0n,
+                    wallet.evmAddress,
                     BigInt(
                         Number.parseInt(
                             ((new Date().getTime() + 1000 * 60 * 15) / 1000).toString(),
@@ -125,77 +153,275 @@ export const addLiquidity = async (
                     ),
                 ],
             })
+        },
+        deposit: {
+            runes: [
+                {
+                    id: runeIdA,
+                    amount: amountA,
+                    address: tokenA,
+                },
+                {
+                    id: runeIdB,
+                    amount: amountB,
+                    address: tokenB,
+                }
+            ]
         }
     });
-
-
 };
 
-/**
- * Swaps ETH for tokens
- * @param assetAddress - The address of the token to receive
- * @param bitcoinAmount - The amount of Bitcoin to swap
- * @param btcTxHash - The Bitcoin transaction hash
- * @param publicKey - The public key
- * @param wallet - The wallet information
- * @returns Promise<string> - The transaction hash
- */
-export const swapETHForTokens = async (
-    assetAddress: string,
-    bitcoinAmount: number,
+export const completeTx = async (
     wallet: WalletInfo,
-    runeId: string,
+    withdrawal?: Withdrawal,
 ): Promise<TransactionIntention> => {
-    const evmAddress = getEVMAddress(wallet.config, getDefaultAccount(wallet.config));
+    return await addCompleteTxIntention(
+        wallet.config,
+        withdrawal
+    )
+}
 
+export async function transferRuneToMIDL(
+    wallet: WalletInfo,
+    runeAmount: bigint,
+    runeId: string,
+    runeAddress: `0x${string}`
+): Promise<TransactionIntention> {
+    const randomAddress = ("0x" + (await import("crypto")).randomBytes(20).toString("hex")) as `0x${string}`;
     return await addTxIntention(
         wallet.config,
         {
-            hasRunesDeposit: true,
-            runes: [
-                {
-                    id: runeId,
-                    value: 1000n / 4n,
-                    address: assetAddress as Address,
-                },
-            ],
-            satoshis: bitcoinAmount,
+            evmTransaction: {
+                to: randomAddress,
+                value: 0n,
+                gas: 21000n
+            },
+            deposit: {
+                runes: [
+                    {
+                        id: runeId,
+                        amount: runeAmount,
+                        address: runeAddress
+                    }
+                ]
+            }
+        },
+    )
+}
+
+export const getERC20Balance = async (
+    tokenAddress: string,
+    holderAddress: string
+): Promise<bigint> => {
+    const balance = await midlRegtestClient.readContract({
+        address: tokenAddress as `0x${string}`,
+        abi: [
+            {
+                type: "function",
+                name: "balanceOf",
+                inputs: [{name: "account", type: "address"}],
+                outputs: [{name: "", type: "uint256"}],
+                stateMutability: "view"
+            }
+        ],
+        functionName: 'balanceOf',
+        args: [holderAddress as `0x${string}`],
+    });
+    return balance as bigint;
+};
+
+
+export const getPair = async (tokenA: string, tokenB: string): Promise<string> => {
+    const pairAddress = await midlRegtestClient.readContract({
+        address: uniswapFactoryAddress, // Uniswap V2 Factory
+        abi: IUniswapV2Factory,
+        functionName: 'getPair',
+        args: [tokenA, tokenB],
+    });
+
+    return pairAddress as string;
+};
+
+export const swapBTCForTokens = async (
+    wallet: WalletInfo,
+    assetAddress: string,
+    bitcoinAmount: number
+): Promise<TransactionIntention> => {
+    return await addTxIntention(
+        wallet.config,
+        {
             evmTransaction: {
                 to: uniswapRouterAddress,
-                value: convertBTCtoETH(bitcoinAmount / 5),
+                value: satoshisToWei(bitcoinAmount),
                 data: encodeFunctionData({
                     abi: uniswapV2Router02Abi,
                     functionName: "swapExactETHForTokens",
                     args: [
                         0n,
                         [WETH, assetAddress as Address],
-                        evmAddress,
+                        wallet.evmAddress,
                         BigInt(
                             Number.parseInt(
                                 ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
                             ),
                         ),
                     ],
-
                 }),
             },
+            deposit: {
+                satoshis: bitcoinAmount,
+            }
         },
     )
 };
 
-/**
- * Completes a transaction on the executor contract
- * @param assetAddress - The address of the asset
- * @param btcTxHash - The Bitcoin transaction hash
- * @param publicKey - The public key
- * @param wallet - The wallet information
- * @returns Promise<string> - The transaction hash
- */
-export const completeTx = async (
+export const swapTokensForBTC = async (
+    wallet: WalletInfo,
     assetAddress: string,
-    wallet: WalletInfo): Promise<TransactionIntention> => {
-    return await addCompleteTxIntention(
+    tokenAmount: bigint,
+    runeId: string,
+): Promise<TransactionIntention> => {
+    return await addTxIntention(
         wallet.config,
-        [assetAddress as Address],
+        {
+            evmTransaction: {
+                to: uniswapRouterAddress,
+                value: 0n,
+                data: encodeFunctionData({
+                    abi: uniswapV2Router02Abi,
+                    functionName: "swapExactTokensForETH",
+                    args: [
+                        tokenAmount,
+                        0n,
+                        [assetAddress as Address, WETH],
+                        wallet.evmAddress,
+                        BigInt(
+                            Number.parseInt(
+                                ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
+                            ),
+                        ),
+                    ],
+                }),
+            },
+            deposit: {
+                runes: [
+                    {
+                        id: runeId,
+                        amount: tokenAmount,
+                        address: assetAddress as Address,
+                    }
+                ]
+            }
+        },
     )
+};
+
+export const swapTokenAForTokenB = async (
+    tokenA: string,
+    tokenB: string,
+    tokenAmount: bigint,
+    wallet: WalletInfo,
+    runeIdA: string,
+): Promise<TransactionIntention> => {
+    return await addTxIntention(
+        wallet.config,
+        {
+            evmTransaction: {
+                to: uniswapRouterAddress,
+                value: 0n,
+                data: encodeFunctionData({
+                    abi: uniswapV2Router02Abi,
+                    functionName: "swapExactTokensForTokens",
+                    args: [
+                        tokenAmount,
+                        0n,
+                        [tokenA as Address, tokenB as Address],
+                        wallet.evmAddress,
+                        BigInt(
+                            Number.parseInt(
+                                ((new Date().getTime() + 1000 * 60 * 120) / 1000).toString(),
+                            ),
+                        ),
+                    ],
+                }),
+            },
+            deposit: {
+                runes: [
+                    {
+                        id: runeIdA,
+                        amount: tokenAmount,
+                        address: tokenA as `0x${string}`,
+                    }
+                ]
+            }
+        },
+    )
+};
+
+
+export const calculateTokensOut = async (
+    tokenAddresses: Address[],
+    amount: bigint
+): Promise<bigint> => {
+    try {
+        const amounts = await midlRegtestClient.readContract({
+            address: uniswapRouterAddress,
+            abi: uniswapV2Router02Abi,
+            functionName: 'getAmountsOut',
+            args: [
+                amount,
+                tokenAddresses
+            ],
+        });
+        return (amounts as bigint[])[1];
+    } catch (error) {
+        console.error('Error calculating tokens out:', error);
+        throw error;
+    }
+};
+
+export interface Reserve {
+    tokenAAddress: string,
+    tokenBAddress: string,
+    tokenA: bigint,
+    tokenB: bigint
+}
+
+export async function getReserves(pairAddress: string): Promise<Reserve> {
+    if (!pairAddress || pairAddress === zeroAddress) {
+        throw new Error("Invalid pair address");
+    }
+
+    try {
+        const [token0, token1, reserves] = await Promise.all([
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'token0',
+            }),
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'token1',
+            }),
+            midlRegtestClient.readContract({
+                address: pairAddress as Address,
+                abi: IUniswapV2Pair,
+                functionName: 'getReserves',
+            })
+        ]);
+        if (!reserves || !(Array.isArray(reserves)) || reserves.length < 3) {
+            throw new Error("Invalid reserve address");
+        }
+        const reservesArray = reserves as Array<any>
+        return {
+            tokenAAddress: token0 as string,
+            tokenBAddress: token1 as string,
+            tokenA: reservesArray[0],
+            tokenB: reservesArray[1]
+        }
+    } catch (error) {
+        console.error(`Error getting reserves for pair ${pairAddress}:`, error);
+        throw new Error(`Failed to get reserves: ${error}`);
+    }
 }

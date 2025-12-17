@@ -1,23 +1,78 @@
-import ecc from "@bitcoinerlab/secp256k1";
-import {BitcoinNetwork, createConfig, MempoolSpaceProvider} from "@midl-xyz/midl-js-core";
-import {initEccLib, Network, networks} from "bitcoinjs-lib";
-import ECPairFactory from "ecpair";
-import Bip32Factory from "bip32";
-import {mnemonicToSeedSync} from "bip39";
-import {Chain, createPublicClient, createWalletClient, http} from "viem";
-import {keyPairConnector} from "@midl-xyz/midl-js-node";
+import {BitcoinNetwork, MaestroSymphonyProvider, MempoolSpaceProvider} from "@midl/core";
+import {Address, Chain, createPublicClient, createWalletClient, http, zeroAddress} from "viem";
+import "dotenv/config"
+import path from "node:path";
 
-// Initialize libraries
-initEccLib(ecc);
-export const ECPair = ECPairFactory(ecc);
-export const bip32 = Bip32Factory(ecc);
+const getDeploymentAddress = (filename: string, fallback: string): Address => {
+    try {
+        const data = require(path.join(__dirname, "..", "deployments", `${filename}.json`));
+
+        if (data && data.address) {
+            return data.address as Address;
+        }
+    } catch (e) {
+        console.warn(`Could not load deployment address from ${filename}, using fallback ${fallback}`);
+    }
+
+    if (!fallback || fallback === zeroAddress) {
+        throw new Error(`Deployment address for ${filename} is missing and no valid fallback provided`);
+    }
+
+    return fallback as Address;
+}
+
+const mempool = process.env.MEMPOOL_URL;
+
+if (!mempool) {
+    throw new Error("Mempool URL is missing");
+}
+
+const geth = process.env.GETH_URL;
+if (!geth) {
+    throw new Error("Geth URL is missing");
+}
+
+const maestro = process.env.MAESTRO_URL;
+if (!maestro) {
+    throw new Error("Mestro URL is missing");
+}
+
+export const uniswapRouterAddress = getDeploymentAddress("UniswapV2Router02", process.env.UNISWAP_ROUTER_ADDRESS as Address ?? "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34");
+export const WETH = getDeploymentAddress("WETH9", process.env.WETH as Address ?? "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A");
+export const uniswapFactoryAddress = getDeploymentAddress("UniswapV2Factory", process.env.UNISWAP_FACTORY_ADDRESS as Address ?? "0x5B3046102F11Ac37Eea74741949bc2aF83c926E5");
+export const goldERC20Address = getDeploymentAddress("GoldERC20", process.env.GOLD_ERC20_ADDRESS as Address);
+export const executorAddress = getDeploymentAddress("Executor", process.env.EXECUTOR_ADDRESS as Address);
+
+
+export const bitcoinNetwork: BitcoinNetwork = {
+    id: "regtest",
+    network: "regtest",
+    explorerUrl: mempool,
+}
+
+export const mempoolProvider = new MempoolSpaceProvider(
+    {
+        regtest: mempool,
+        mainnet: "https://mempool.space",
+        testnet: "https://mempool.space/testnet",
+        testnet4: "https://mempool.space/testnet4",
+        signet: "https://mempool.space/signet",
+    }
+)
+
+export const maestroProvider = new MaestroSymphonyProvider(
+    {
+        regtest: maestro,
+    }
+)
+
 
 // Define MIDL regtest chain
 export const midlRegtest: Chain = {
     id: 0x309,
     rpcUrls: {
         default: {
-            http: ["https://rpc.etna.midl.xyz/"],
+            http: [geth],
         },
     },
     name: "midl-regtest",
@@ -31,88 +86,15 @@ export const midlRegtest: Chain = {
 export const regtest: BitcoinNetwork = {
     id: "regtest",
     network: "regtest",
-    explorerUrl: "https://mempool.etna.midl.xyz",
+    explorerUrl: geth,
 }
 
-// Create a public client for the MIDL regtest chain
 export const midlRegtestClient = createPublicClient({
     chain: midlRegtest,
     transport: http(),
 });
 
-// Create a wallet client for the MIDL regtest chain
 export const midlRegtestWalletClient = createWalletClient({
     chain: midlRegtest,
     transport: http(),
-});
-
-// Source address private keys
-export const sourcePrivateKeyFrom = "d6253db0047fcd99323946c6c535d227279881c5329d1de5006247a3689a6b11";
-export const sourcePrivateKeyTo = "7b503a78d68b281e1693b5f9ac7a5cfce5119e2ca9553167508e773424956b27";
-export const multisigAddress = "bcrt1q65a572l6n7vqqpqpvnrcxps8205fuzcfr0gmew";
-export const uniswapRouterAddress = "0xee7d81B234042AB58192E0Ef6a5004b08ca65a34";
-export const WETH = "0xC726845d8b6f0586A12D31ec5075e47B28c8eC4A";
-export const executorAddress = "0xEbF0Ece9A6cbDfd334Ce71f09fF450cd06D57753";
-
-
-export const getKeyPair = (network: Network = networks.regtest) => {
-    const mnemonic =
-        "face spike layer label health knee cry taste carpet found elegant october";
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = bip32.fromSeed(seed, network);
-    const child = root.derivePath("m/86'/1'/0'/0/0");
-
-    // biome-ignore lint/style/noNonNullAssertion: Private key is always defined
-    return ECPair.fromWIF(child.toWIF()!, network);
-};
-
-const derivedKeyPair = getKeyPair();
-
-// Create key pair from private key
-export const keyPairFrom = ECPair.fromPrivateKey(
-    derivedKeyPair.privateKey!,
-    {network: networks.regtest},
-);
-
-// Create key pair from private key
-export const keyPairTo = ECPair.fromPrivateKey(
-    Buffer.from(sourcePrivateKeyTo, "hex"),
-    {network: networks.regtest}
-);
-
-export enum AddressPurpose {
-    Payment = "payment",
-    Ordinals = "ordinals",
-}
-
-
-export const mempoolProvider = new MempoolSpaceProvider({
-    regtest: "https://mempool.etna.midl.xyz",
-    mainnet: "https://mempool.space",
-    testnet: "https://mempool.space/testnet",
-    testnet4: "https://mempool.space/testnet4",
-});
-
-// Create configuration
-export const configFrom = createConfig({
-    networks: [regtest],
-    connectors: [
-        keyPairConnector(
-            {
-                keyPair: keyPairFrom,
-            }
-        )
-    ],
-    provider: mempoolProvider,
-});
-
-export const configTo = createConfig({
-    networks: [regtest],
-    connectors: [
-        keyPairConnector(
-            {
-                keyPair: keyPairFrom,
-            }
-        )],
-    provider: mempoolProvider,
 });

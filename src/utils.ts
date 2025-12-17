@@ -1,157 +1,30 @@
-import {networks} from "bitcoinjs-lib";
-import {connect, createConfig} from "@midl-xyz/midl-js-core";
-import {mnemonicToSeedSync} from "bip39";
-import {AddressPurpose, bip32, ECPair, mempoolProvider, regtest} from "./config";
-import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
-import {getAssetAddressByRuneId} from "@/evm";
-import {zeroAddress} from "viem";
-import {keyPairConnector} from "@midl-xyz/midl-js-node";
-
-// Path to store wallet mnemonics
-const MNEMONICS_FILE_PATH = path.join(__dirname, '..', 'wallet_mnemonics.json');
-
-/**
- * Reads stored mnemonics from file
- * @returns string[] - Array of stored mnemonics
- */
-export function readStoredMnemonics(): string[] {
-    try {
-        if (fs.existsSync(MNEMONICS_FILE_PATH)) {
-            const data = fs.readFileSync(MNEMONICS_FILE_PATH, 'utf8');
-            return JSON.parse(data);
-        }
-    } catch (error) {
-        console.error('Error reading stored mnemonics:', error);
-    }
-    return [];
-}
-
-/**
- * Writes mnemonics to file
- * @param mnemonics - Array of mnemonics to store
- */
-export function storeMnemonics(mnemonics: string[]): void {
-    try {
-        fs.writeFileSync(MNEMONICS_FILE_PATH, JSON.stringify(mnemonics, null, 2), 'utf8');
-        console.log(`Stored ${mnemonics.length} mnemonics to ${MNEMONICS_FILE_PATH}`);
-    } catch (error) {
-        console.error('Error storing mnemonics:', error);
-    }
-}
+import {Account, waitForTransaction} from "@midl/core";
+import {executorAddress, goldERC20Address, midlRegtestClient, midlRegtestWalletClient, WETH} from "./config";
+import {approveTokens, getAssetAddressByRuneId, getRuneIdByAssetAddress, Reserve} from "@/evm";
+import {erc20Abi, zeroAddress} from "viem";
+import {
+    addCompleteTxIntention,
+    addRequestAddAssetIntention,
+    finalizeBTCTransaction,
+    signIntention,
+    SystemContracts,
+    TransactionIntention,
+    weiToSatoshis
+} from "@midl/executor";
+import {getCode, waitForTransactionReceipt} from "viem/actions";
+import {createRuneForWallet} from "@/runes";
+import assert from "node:assert";
 
 /**
  * Interface for wallet information
  */
 export interface WalletInfo {
-    keyPair: any;
     config: any;
-    address: string;
+    paymentAccount: Account;
+    ordinalsAccount: Account;
     publicKey: string;
-    privateKey: string;
-}
-
-/**
- * Generates a random mnemonic
- * @returns string - A random mnemonic
- */
-export function generateRandomMnemonic(): string {
-    // Generate 16 random bytes (128 bits)
-    const randomBytes = crypto.randomBytes(16);
-
-    // Convert to a hex string
-    const hexString = randomBytes.toString('hex');
-
-    // This is a simplified version - in a real app, you'd use a proper BIP39 library
-    // to generate a valid mnemonic with checksum
-    return hexString;
-}
-
-/**
- * Creates multiple wallets
- * @param count - The number of wallets to create
- * @returns Promise<WalletInfo[]> - An array of wallet information
- */
-export async function createMultipleWallets(count: number): Promise<WalletInfo[]> {
-    const wallets: WalletInfo[] = [];
-
-    // Read stored mnemonics
-    let storedMnemonics = readStoredMnemonics();
-
-    // If first wallet mnemonic doesn't exist, use the fixed one
-    if (storedMnemonics.length === 0) {
-        storedMnemonics.push("fixed deterministic mnemonic for first wallet always the samq");
-    }
-
-    // Keep track of how many mnemonics we had before adding new ones
-    const originalMnemonicCount = storedMnemonics.length;
-    console.log(`Found ${originalMnemonicCount} existing wallet mnemonics`);
-
-    // Generate new mnemonics if needed
-    while (storedMnemonics.length < count) {
-        storedMnemonics.push(generateRandomMnemonic());
-        console.log(`Generated new mnemonic for wallet ${storedMnemonics.length}`);
-    }
-
-    // Store all mnemonics (even if unchanged)
-    storeMnemonics(storedMnemonics);
-
-    // Create wallets using the mnemonics (up to the requested count)
-    for (let i = 0; i < count; i++) {
-        const mnemonic = storedMnemonics[i];
-
-        // Create a key pair from the mnemonic
-        const seed = mnemonicToSeedSync(mnemonic);
-        const root = bip32.fromSeed(seed, networks.regtest);
-        const child = root.derivePath("m/86'/1'/0'/0/0");
-        const keyPair = ECPair.fromWIF(child.toWIF()!, networks.regtest);
-
-        // Create a config for the wallet
-        const config = createConfig({
-            networks: [regtest],
-            connectors: [
-                keyPairConnector(
-                    {
-                        keyPair: keyPair,
-                    }
-                )],
-            provider: mempoolProvider,
-        });
-
-        // Connect the config
-        const accounts = await connect(config, {
-            purposes: [AddressPurpose.Ordinals],
-            network: regtest
-        });
-
-        // Get the address
-        const configState = config.getState();
-        const ordinalsAccount = configState?.accounts?.find(
-            (account) => account.purpose === AddressPurpose.Ordinals,
-        );
-
-        if (!ordinalsAccount) {
-            throw new Error(`No ordinals account found for wallet ${i}`);
-        }
-
-        const address = ordinalsAccount.address;
-        const publicKey = ordinalsAccount.publicKey;
-        const privateKey = keyPair.privateKey?.toString('hex') || '';
-
-        wallets.push({
-            keyPair,
-            config,
-            address,
-            publicKey,
-            privateKey,
-        });
-
-        const isNewWallet = i >= originalMnemonicCount;
-        console.log(`Created wallet ${i + 1}/${count} with address: ${address} (${isNewWallet ? 'new' : 'existing'})`);
-    }
-
-    return wallets;
+    accounts: Account[];
+    evmAddress: `0x${string}`;
 }
 
 export async function waitRuneAddress(runeId: string): Promise<string> {
@@ -163,4 +36,172 @@ export async function waitRuneAddress(runeId: string): Promise<string> {
         return waitRuneAddress(runeId); // Retry
     }
     return runeAddress;
+}
+
+export async function executeBTCTransactionWithIntentions(
+    wallet: WalletInfo,
+    intentions: TransactionIntention[],
+    skipEstimateGasMulti?: boolean
+): Promise<{ btcTxId: string }> {
+    const transferBtcResp = await finalizeBTCTransaction(
+        wallet.config,
+        intentions,
+        midlRegtestWalletClient,
+        {
+            skipEstimateGas: skipEstimateGasMulti,
+        }
+    );
+
+    const signedTxs: `0x07${string}`[] = [];
+    for (const intention of intentions) {
+        const signedTx = await signIntention(wallet.config, midlRegtestWalletClient, intention, intentions, {
+            txId: transferBtcResp.tx.id
+        });
+        signedTxs.push(signedTx);
+    }
+
+    const txs = await midlRegtestWalletClient.sendBTCTransactions({
+        serializedTransactions: signedTxs,
+        btcTransaction: transferBtcResp.tx.hex,
+    });
+    console.log(`MIDL transactions: ${txs}, BTC transaction: ${transferBtcResp.tx.id}`);
+
+    for (const txHash of txs) {
+        console.log(`waitForTransactionReceipt tx ${txHash}`);
+        const receipt = await waitForTransactionReceipt(midlRegtestWalletClient, {
+            hash: txHash
+        });
+        if (receipt.status === "reverted") {
+            throw new Error(`tx was reverted, txHash: ${txHash}`);
+        }
+    }
+    return {btcTxId: transferBtcResp.tx.id};
+}
+
+export function generateRandomString(length: number): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+export function isWithinTolerance(actual: number, expected: number, tolerancePercent: number = 5): boolean {
+    const tolerance = Math.abs(expected * tolerancePercent / 100);
+    const difference = Math.abs(actual - expected);
+    return difference <= tolerance;
+}
+
+export interface randomSwapValue {
+    BTCTokenA: number,
+    TokenABTC: bigint,
+    TokenATokenB: bigint
+    BTCSynthetic: number,
+    SyntheticBTC: bigint,
+}
+
+export async function getRandomSwapValues(reserves: Reserve[], tokenAAddress: string): Promise<randomSwapValue[]> {
+    const amountOfTestWallets = Number(process.env.TEST_WALLETS ?? "1");
+    const res: randomSwapValue[] = []
+    const getRandomBigInt = (max: bigint, percentage: number = 0.01): bigint => {
+        const maxValue = max * BigInt(Math.floor(percentage * 100)) / 100n
+        if (maxValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
+            return BigInt(Math.floor(Math.random() * Number(maxValue)))
+        } else {
+            return maxValue / BigInt(Math.floor(Math.random() * 10) + 1)
+        }
+    }
+    const [BTCReserves, TokenAFromBTCPool] = reserves[0].tokenAAddress === WETH
+        ? [reserves[0].tokenA, reserves[0].tokenB]
+        : [reserves[0].tokenB, reserves[0].tokenA]
+
+    const TokenAFromTokenPool = reserves[1].tokenAAddress === tokenAAddress
+        ? reserves[1].tokenA
+        : reserves[1].tokenB
+
+    const [BTCSyntheticReserves, SyntheticReserves] = reserves[2].tokenAAddress === WETH
+        ? [reserves[2].tokenA, reserves[2].tokenB]
+        : [reserves[2].tokenB, reserves[2].tokenA]
+
+    for (let i = 0; i < amountOfTestWallets; i++) {
+        res.push({
+            BTCTokenA: weiToSatoshis(getRandomBigInt(BTCReserves)),
+            TokenABTC: getRandomBigInt(TokenAFromBTCPool),
+            TokenATokenB: getRandomBigInt(TokenAFromTokenPool),
+            BTCSynthetic: weiToSatoshis(getRandomBigInt(BTCSyntheticReserves)),
+            SyntheticBTC: getRandomBigInt(SyntheticReserves)
+        })
+    }
+    return res
+}
+
+export async function checkSystemContracts() {
+    const systemContracts = [
+        SystemContracts.ValidatorRegistry,
+        SystemContracts.Staking,
+        SystemContracts.MidlToken,
+        SystemContracts.Executor,
+        SystemContracts.SynthReservoir,
+        SystemContracts.GlobalParams,
+        SystemContracts.FeesDistributor,
+        SystemContracts.RuneImplementation,
+        SystemContracts.Treasury,
+        SystemContracts.Multicall3,
+    ]
+    for (const systemContract of systemContracts) {
+        const v = await getCode(midlRegtestClient, {address: systemContract})
+        assert(v !== undefined, `System contract is undefined: ${systemContract}`)
+    }
+}
+
+export async function createSyntheticAsset(baseWallet: WalletInfo) {
+    console.log("Test ERC20 Synthetic Rune mapping");
+
+    let runeId = await getRuneIdByAssetAddress(goldERC20Address);
+    if (runeId === '0:0') {
+        const runeName = "END•TO•END•RUNE•" + generateRandomString(4)
+        const amount = BigInt(100_000_000_000) * (10n ** 18n);
+
+        runeId = await createRuneForWallet(baseWallet, runeName, String(amount) as unknown as number)
+        const intention = await addRequestAddAssetIntention(baseWallet.config, {
+            runeId: runeId,
+            address: goldERC20Address,
+            amount,
+        })
+
+        let btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [intention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+        assert(await getAssetAddressByRuneId(runeId) === goldERC20Address, "Synthetic rune mapping failed");
+        console.log(`Synthetic runeId successfully created with runeId: ${runeId} at address: ${goldERC20Address}`);
+        const completeTxAmount = amount / 10000n
+        console.log(`Sending MIDL pack with completeTx to fill the reservoir with amount: ${completeTxAmount}`)
+        const approveIntention = await approveTokens(goldERC20Address, executorAddress, completeTxAmount, baseWallet)
+        const completeTxIntention = await addCompleteTxIntention(baseWallet.config, {
+            runes: [
+                {
+                    id: runeId,
+                    address: goldERC20Address,
+                    amount: completeTxAmount,
+                }
+            ]
+        })
+        btcTransactionResult = await executeBTCTransactionWithIntentions(baseWallet, [approveIntention, completeTxIntention])
+        await waitForTransaction(baseWallet.config, btcTransactionResult.btcTxId, 1);
+    } else {
+        console.log(`Synthetic rune mapping already exists for rune ID ${runeId} at address ${goldERC20Address}`);
+    }
+
+    const synthAddress = await getAssetAddressByRuneId(runeId)
+    assert(synthAddress === goldERC20Address, "Synthetic rune mapping failed");
+
+    const balance = await midlRegtestClient.readContract({
+        address: synthAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [SystemContracts.SynthReservoir]
+    })
+    assert(balance !== 0n, "Balance of SynthReservoir should not be zero");
+
+    return runeId
 }
